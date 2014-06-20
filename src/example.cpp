@@ -3,7 +3,6 @@
 #include <sawJR3ForceSensor/osaJR3ForceSensor.h>
 #include <sawKeyboard/mtsKeyboard.h>
 #include <sawCANBus/osaSocketCAN.h>
-#include <sawControllers/osaPIDAntiWindup.h>
 #include <cisstOSAbstraction/osaCPUAffinity.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
 
@@ -12,142 +11,13 @@
 #include <cisstOSAbstraction/osaGetTime.h>
 #include <sawControllers/mtsGravityCompensation.h>
 #include <sawBarrett/mtsWAM.h>
-
+#include <cisstMultiTask/mtsTaskManager.h>
+#include <cisstMultiTask/mtsTaskPeriodic.h>
+#include <cisstMultiTask/mtsInterfaceRequired.h>
 
 #include "mtsHybridForcePosition.h"
-
-class mtsPIDAntiWindup : public mtsTaskPeriodic {
-    
-    osaPIDAntiWindup* pid;
-    osaWAM* wam;
-
-    mtsInterfaceProvided* slave;
-    prmPositionJointGet qs;
-    prmPositionJointGet q;
-    std::list<double> dt;
-
-public:
-
-    mtsPIDAntiWindup( const std::string& name,
-                      double period,
-                      osaWAM* wam,
-                      osaPIDAntiWindup* pid ) :
-        mtsTaskPeriodic( name, period ),
-        wam( wam ),
-        pid( pid ){
-        
-        if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
-            CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
-        }
-        qs.Position() = q.Position();
-
-        slave = AddInterfaceProvided( "Slave" );
-        if( slave ){
-            StateTable.AddData( qs, "PositionCMD" );
-            StateTable.AddData( q,  "PositionMSR" );
-            slave->AddCommandWriteState( StateTable, qs, "SetPositionCMD" );
-            slave->AddCommandReadState( StateTable, q,  "GetPositionMSR" );
-        }
-        else{
-            CMN_LOG_RUN_ERROR << "Failed to create interface Output for " << GetName()
-                              << std::endl;
-        }
-        
-    }
-    ~mtsPIDAntiWindup(){}
-
-
-    void SendTorques ( const vctDynamicVector<double>& tau )
-    { wam->SetTorques( tau ); }
-
-    vctDynamicVector<double> 
-    PIDEvaluate
-    ( const vctDynamicVector<double>& q,
-      const vctDynamicVector<double>& qs ){
-        
-        // period
-        double dt = GetPeriodicity();
-        
-        vctDynamicVector<double> qtmp( q );
-        
-        // evaluate the PID
-        vctDynamicVector<double> tau( q.size(), 0.0 );
-        if( pid->Evaluate( qs, qtmp, tau, dt )  != osaPIDAntiWindup::ESUCCESS ){
-            CMN_LOG_RUN_ERROR << "Failed to evaluate controller" << std::endl;
-            exit(-1);
-        }
-        
-        return tau;
-        
-    }
-    
-    void Configure( const std::string& ){}
-    void Startup(){         
-        osaCPUSetAffinity( OSA_CPU3 ); 
-        Thread.SetPriority( 80 );
-    }
-    void Cleanup(){}
-
-    void Run(){ 
-
-        // Timing stuff
-        static double t1 = osaGetTime();
-        double t2 = osaGetTime();
-        dt.push_back( t2 - t1 );
-        t1 = t2;
-        
-        if( 1.0/GetPeriodicity() < dt.size() ){
-            
-            std::list<double>::iterator it=dt.begin();
-            double avg=0.0;
-            double max=0.0;
-            for( ; it!=dt.end(); it++ ){
-                avg += *it;
-                if( max < *it ) max = *it;
-            }
-            //std::cout << std::setw(15) << 1.0/(avg/dt.size())
-            //          << std::setw(15) << fabs(GetPeriodicity()-avg/dt.size())
-            //          << std::setw(15) << fabs(GetPeriodicity()-max)
-            //          << std::endl;
-            dt.clear();
-        }
-
-        /*
-        cpu_set_t mask;
-        sched_getaffinity( 0, sizeof( cpu_set_t ), &mask );
-        std::cout << CPU_ISSET( 0, &mask ) << " "
-                  << CPU_ISSET( 1, &mask ) << " "
-                  << CPU_ISSET( 2, &mask ) << " "
-                  << CPU_ISSET( 3, &mask ) << std::endl;            
-        */
-
-        // get all the stuff 
-        ProcessQueuedCommands(); 
-        ProcessQueuedEvents(); 
-
-        // current joints
-        if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
-            CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
-            bool valid=false;
-            q.SetValid( valid );
-        }
-        else{
-            bool valid=true;
-            q.SetValid( valid );
-        }
-
-        bool valid=false;
-        qs.GetValid( valid );
-        if( valid ){
-            //std::cout << GetName() << " " << qs.Position() << std::endl;
-            SendTorques( PIDEvaluate( q.Position(), qs.Position() ) ); 
-        }
-        else{
-            SendTorques( vctDynamicVector<double>( 7, 0.0 ) ); 
-        }
-    }
-
-};
+#include "mtsPIDAntiWindup.h"
+#include "WAMprobe.h"
 
 //================== MAIN =========================
 
@@ -166,10 +36,17 @@ int main(int argc, char** argv){
 
     mtsKeyboard kb;
     kb.SetQuitKey( 'q' );
+    // Add key 'C' to enable gravity compensation 
     kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
+     // Add key 'R' to start cutting
+   // kb.AddKeyWriteFunction( 'R', "CutterStart", "Enable", true );
+     // Add key 'S' to stop
+   // kb.AddKeyWriteFunction( 'S', "CutterStop", "Enable", true );
+
+
     taskManager->AddComponent( &kb );
 
-  osaSocketCAN can( "rtcan1", osaCANBus::RATE_1000 );
+  osaSocketCAN can( argv[1], osaCANBus::RATE_1000 );
   if( can.Open() != osaCANBus::ESUCCESS ){
     CMN_LOG_RUN_ERROR << argv[0] << "Failed to open " << argv[1] << std::endl;
     return -1;
@@ -193,6 +70,7 @@ int main(int argc, char** argv){
   vctFixedSizeVector<double,3> tw0(0.0);
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
 
+  // instantiate and initialize GC controller
   mtsGravityCompensation GC( "GC", 
 			     0.002, 
 			    // path.Find( "wam7.rob" ), 
@@ -200,7 +78,144 @@ int main(int argc, char** argv){
 			     Rtw0,
 			     OSA_CPU3 );
   taskManager->AddComponent( &GC );
+
+  //-------------- Setting up Hybrid Control ------------------------
+  
+
+ // initial joint position
+    vctDynamicVector<double> qinit( 7, 0.0 );
+    qinit[1] = -cmnPI_2;
+    qinit[3] =  cmnPI;  
+    qinit[5] = -cmnPI_2;
+
+    // ready joint position
+    vctDynamicVector<double> qready( qinit );
+    qready[3] =  cmnPI_2;  
+
+    // pos/ori of link 0 wrt world
+    vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
+                                     0.0,  1.0,  0.0,
+                                     1.0,  0.0,  0.0 );
+    vctFixedSizeVector<double,3> tw0(0.0);
+    vctFrame4x4<double> Rtw0( Rw0, tw0 );
+    
+ // orientation of the tool wrt FT sensor (18 degrees about +Y)
+    vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
+                                    0.0000,  1.0000,   0.0000,
+                                    0.3090,  0.0000,   0.9511,
+                                    VCT_NORMALIZE );
+    // position of the tool wrt FT sensor (9cm along +z)
+    vctFixedSizeVector<double,3> tst( 0.0, 0.0, 0.09 );
+    vctFrame4x4<double> Rtst( Rst, tst );
+
+    // Tool to attach to the WAM
+    // transform of the tool wrt WAM link 7 (18 deg about +Y)
+    vctMatrixRotation3<double> R7t( Rst );
+    // position of the TCP wrt WAM link 7
+    vctFixedSizeVector<double,3> t7t( 0.0, 0.0, 0.15 );
+    vctFrame4x4<double> Rt7t( R7t, t7t );
+
+    // this is used to evaluate the kinematics and Jacobian
+    robManipulator* robWAM = new robManipulator( argv[2], Rtw0 );
+
+    // Create a tool and attach it to the WAM
+    robManipulator* robtool = new robManipulator( Rt7t );
+
+    // mass and center of the tool (measured)
+    double mass = 0.145;
+    vctFixedSizeVector<double,3> com( 0.0, 0.0, 0.03 );
+
+    // JR3 FT sensor
+    osaJR3ForceSensor::Wrench zero( 0.0 );
+    osaJR3ForceSensor* jr3 = new osaJR3ForceSensor( "/dev/comedi0",
+                                                    osaJR3ForceSensor::METRIC,
+                                                    zero,
+                                                    Rtst, 
+                                                    mass, 
+                                                    com );
+    jr3->Open();
+    // zero the JR3 accounting for the mass of the tool
+    jr3->Zero( robWAM->ForwardKinematics( qinit, 7 ) );
+
+    // attach the tool
+    robWAM->Attach( robtool );
+
+
+    // gains (proportional, integral, derivative, anti-windup)
+    vctDynamicVector<double> Kp(7,4000.0,3000.0,2000.0,1500.0,180.0,180.0,20.0);
+    vctDynamicVector<double> Ki(7,3200.0,3200.0,2200.0,3200.0,200.0,200.0,30.0);
+    vctDynamicVector<double> Kd(7,   8.0,   8.0,   8.0,   5.0,  0.5,  0.5, 0.05);
+    vctDynamicVector<double> Kt(7, 5.0);
+    vctDynamicVector<double> limits(7,120.0,110.0,110.0, 50.0, 15.0, 15.0, 5.5);
+
+    osaPIDAntiWindup* osapid = NULL;
+    osapid = new osaPIDAntiWindup( Kp, Ki, Kd, Kt, limits, qinit );
+
+    // WAM part
+    osaSocketCAN can( argv[3], osaCANBus::RATE_1000 );
+
+    if( can.Open() != osaCANBus::ESUCCESS ){
+        std::cout << argv[0] << "Failed to open " << argv[3] << std::endl;
+        return -1;
+    }
+
+    osaWAM* wam = new osaWAM( &can );
+    wam->Initialize();
+    wam->SetPositions( qinit );
+    
+    // controller part
+    osaHybridForcePosition::Mask mask( osaHybridForcePosition::POSITION );
+    vctFixedSizeVector<double,6> K( .3, .3, .3, .1, .1, .1 );
+    osaHybridForcePosition* hfp = NULL;
+    hfp = new osaHybridForcePosition( mask, robWAM, K );
+    
+    osaGravityCompensation* gc = NULL;
+    gc = new osaGravityCompensation( argv[2], Rtw0 );
+
+    mtsHybridForcePosition* ctrl = NULL;
+    ctrl = new mtsHybridForcePosition( "Control", 1.0/500.0,
+                                       argv[2], Rtw0, Rt7t, qinit, qready,
+                                       jr3, gc, hfp );
+    taskManager->AddComponent( ctrl );
+
+    mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid );
+    taskManager->AddComponent( mtspid );
+    
+    mtsKeyboard kb;
+    kb.SetQuitKey( 'q' );
+    kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
+    kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
+    kb.AddKeyVoidEvent( 't', "Control", "Test" );
+    kb.AddKeyVoidEvent( 'f', "Control", "Force" );
+    taskManager->AddComponent( &kb );
+
+    // connecting keyboard to hybrid controller
+ if( !taskManager->Connect( kb.GetName(), "Control",
+			    ctrl->GetName(), "Control") ){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::Control to "
+	      << ctrl->GetName() << "::Control" << std::endl;
+    return -1;
+  }
+
+// connecting pid antiwindup to hybrid controller
+ if( !taskManager->Connect( mtspid->GetName(), "Slave",
+			    ctrl->GetName(), "Slave") ){
+    std::cout << "Failed to connect: "
+	      << mtspid->GetName() << ":Slave to "
+	      << ctrl->GetName() << ":Slave" << std::endl;
+    return -1;
+  }
+  // instantiate and initialize hybrid force position controller
+ // mtsHybridForcePosition HFP("HFP");
+ // taskManager->AddComponent(&HFP);
  
+
+
+
+// ------------ Use key 'C' to enable GC controller ---------
+
+/*
  if( !taskManager->Connect( kb.GetName(), "GCEnable",
 			    GC.GetName(), "Control") ){
     std::cout << "Failed to connect: "
@@ -224,21 +239,53 @@ int main(int argc, char** argv){
 	      << GC.GetName()  << "::Input" << std::endl;
     return -1;
   }
+*/
+
+
+//---------------- Use key 'R' to start running WAM ----------------------------
+
+
+ if( !taskManager->Connect( kb.GetName(), "CutterStart",
+			    HFP.GetName(), "Control") ){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::GCEnable to "
+	      << HFP.GetName() << "::Control" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Input",
+			     HFP.GetName(),  "Output" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Input to "
+	      << HFP.GetName()  << "::Output" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Output",
+			     HFP.GetName(),  "Input" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Output to "
+	      << HFP.GetName()  << "::Input" << std::endl;
+    return -1;
+  }
+
+
+// ----------------- Use key 'S' to stop the cutting -----------------------
+
+
 
   taskManager->CreateAll();
   taskManager->StartAll();
 
-  //pause();
+  pause();
 
-    while(1){
-
-        osaSleep(100.0 * cmn_ms);
-    }
 
     taskManager->KillAll();
     taskManager->WaitForStateAll(mtsComponentState::FINISHED, 2.0 * cmn_s);
 
     taskManager->Cleanup();
+
+
     //osaJR3ForceSensor jr3("/dev/comedi0");
     //jr3.Open();
 
