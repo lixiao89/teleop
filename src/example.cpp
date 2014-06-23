@@ -37,11 +37,8 @@ int main(int argc, char** argv){
     mtsKeyboard kb;
     kb.SetQuitKey( 'q' );
     // Add key 'C' to enable gravity compensation 
+    // GCEnable is a required interface created by AddKeyWriteFunction
     kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
-     // Add key 'R' to start cutting
-   // kb.AddKeyWriteFunction( 'R', "CutterStart", "Enable", true );
-     // Add key 'S' to stop
-   // kb.AddKeyWriteFunction( 'S', "CutterStop", "Enable", true );
 
 
     taskManager->AddComponent( &kb );
@@ -79,6 +76,36 @@ int main(int argc, char** argv){
 			     OSA_CPU3 );
   taskManager->AddComponent( &GC );
 
+// ------------ Use key 'C' to enable GC controller ---------
+
+// Control is a provided interface created by mtsController
+ if( !taskManager->Connect( kb.GetName(), "GCEnable",
+			    GC.GetName(), "Control") ){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::GCEnable to "
+	      << GC.GetName() << "::Control" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Input",
+			     GC.GetName(),  "Output" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Input to "
+	      << GC.GetName()  << "::Output" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Output",
+			     GC.GetName(),  "Input" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Output to "
+	      << GC.GetName()  << "::Input" << std::endl;
+    return -1;
+  }
+
+
+
+
   //-------------- Setting up Hybrid Control ------------------------
   
 
@@ -93,12 +120,14 @@ int main(int argc, char** argv){
     qready[3] =  cmnPI_2;  
 
     // pos/ori of link 0 wrt world
-    vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
+   /* vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
                                      0.0,  1.0,  0.0,
                                      1.0,  0.0,  0.0 );
+
     vctFixedSizeVector<double,3> tw0(0.0);
-    vctFrame4x4<double> Rtw0( Rw0, tw0 );
+    vctFrame4x4<double> Rtw0( Rw0, tw0 );*/
     
+
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
     vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
                                     0.0000,  1.0000,   0.0000,
@@ -152,12 +181,13 @@ int main(int argc, char** argv){
     osapid = new osaPIDAntiWindup( Kp, Ki, Kd, Kt, limits, qinit );
 
     // WAM part
-    osaSocketCAN can( argv[3], osaCANBus::RATE_1000 );
+   /* osaSocketCAN can( argv[3], osaCANBus::RATE_1000 );
 
     if( can.Open() != osaCANBus::ESUCCESS ){
         std::cout << argv[0] << "Failed to open " << argv[3] << std::endl;
         return -1;
-    }
+    }*/
+
 
     osaWAM* wam = new osaWAM( &can );
     wam->Initialize();
@@ -173,6 +203,7 @@ int main(int argc, char** argv){
     gc = new osaGravityCompensation( argv[2], Rtw0 );
 
     mtsHybridForcePosition* ctrl = NULL;
+    // Control is a required interface
     ctrl = new mtsHybridForcePosition( "Control", 1.0/500.0,
                                        argv[2], Rtw0, Rt7t, qinit, qready,
                                        jr3, gc, hfp );
@@ -181,8 +212,9 @@ int main(int argc, char** argv){
     mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid );
     taskManager->AddComponent( mtspid );
     
-    mtsKeyboard kb;
-    kb.SetQuitKey( 'q' );
+   // mtsKeyboard kb;
+   // kb.SetQuitKey( 'q' );
+   // AddKeyVoidEvent creates provided interfaces
     kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
     kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
     kb.AddKeyVoidEvent( 't', "Control", "Test" );
@@ -190,6 +222,7 @@ int main(int argc, char** argv){
     taskManager->AddComponent( &kb );
 
     // connecting keyboard to hybrid controller
+    // WRONG USE??
  if( !taskManager->Connect( kb.GetName(), "Control",
 			    ctrl->GetName(), "Control") ){
     std::cout << "Failed to connect: "
@@ -199,6 +232,8 @@ int main(int argc, char** argv){
   }
 
 // connecting pid antiwindup to hybrid controller
+// Slave in mtspid is a provided interface
+// Slave in ctrl is required interface
  if( !taskManager->Connect( mtspid->GetName(), "Slave",
 			    ctrl->GetName(), "Slave") ){
     std::cout << "Failed to connect: "
@@ -211,66 +246,6 @@ int main(int argc, char** argv){
  // taskManager->AddComponent(&HFP);
  
 
-
-
-// ------------ Use key 'C' to enable GC controller ---------
-
-/*
- if( !taskManager->Connect( kb.GetName(), "GCEnable",
-			    GC.GetName(), "Control") ){
-    std::cout << "Failed to connect: "
-	      << kb.GetName() << "::GCEnable to "
-	      << GC.GetName() << "::Control" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Input",
-			     GC.GetName(),  "Output" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Input to "
-	      << GC.GetName()  << "::Output" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Output",
-			     GC.GetName(),  "Input" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Output to "
-	      << GC.GetName()  << "::Input" << std::endl;
-    return -1;
-  }
-*/
-
-
-//---------------- Use key 'R' to start running WAM ----------------------------
-
-
- if( !taskManager->Connect( kb.GetName(), "CutterStart",
-			    HFP.GetName(), "Control") ){
-    std::cout << "Failed to connect: "
-	      << kb.GetName() << "::GCEnable to "
-	      << HFP.GetName() << "::Control" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Input",
-			     HFP.GetName(),  "Output" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Input to "
-	      << HFP.GetName()  << "::Output" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Output",
-			     HFP.GetName(),  "Input" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Output to "
-	      << HFP.GetName()  << "::Input" << std::endl;
-    return -1;
-  }
-
-
-// ----------------- Use key 'S' to stop the cutting -----------------------
 
 
 
