@@ -56,8 +56,8 @@ int main(int argc, char** argv){
   taskManager->AddComponent( &WAM );
 
 
-  cmnPath path;
-  path.AddRelativeToCisstShare("/models/WAM");
+ // cmnPath path;
+ // path.AddRelativeToCisstShare("/models/WAM");
 
   // Rotate the base
   vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
@@ -86,6 +86,8 @@ int main(int argc, char** argv){
     kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
     kb.AddKeyVoidEvent( 't', "Control", "Test" );
     kb.AddKeyVoidEvent( 'f', "Control", "Force" );
+
+    kb.AddKeyVoidEvent( 'h', "Control", "Hybrid" );
     kb.AddKeyVoidEvent( 's', "Setqr", "Setqready");
  
     taskManager->AddComponent( &kb );
@@ -99,21 +101,21 @@ int main(int argc, char** argv){
 
 // Setting up keyboard to acquire ready joint position "qready"
 
-    WAMprobe* wamprobe = new WAMproble();
+    WAMprobe* wamprobe = new WAMprobe();
 
     taskManager->AddComponent( wamprobe );
 
-   if( !taskManager->Connect( wamprobe->GetName(), "Setqr", kb.GetName(), "Setqr"){
+   if( !taskManager->Connect( wamprobe->GetName(), "Setqr", kb.GetName(), "Setqr")){
     std::cout << "Failed to connect: "
-	      << kb.GetName() << "::Control to "
-	      << ctrl->GetName() << "::Control" << std::endl;
+	      << wamprobe->GetName() << "::Control to "
+	      << kb.GetName() << "::Control" << std::endl;
     return -1;
   }
 
 
-if( !taskManager->Connect( wamprobe.GetName(), "Input",WAM.GetName(),  "Output" ) ){
+if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output" ) ){
         std::cout << "Failed to connect: "
-              << wamprobe.GetName() << "::Input to "
+              << wamprobe->GetName() << "::Input to "
               << WAM.GetName()  << "::Output" << std::endl;
         return -1;
       }
@@ -123,7 +125,7 @@ if( !taskManager->Connect( wamprobe.GetName(), "Input",WAM.GetName(),  "Output" 
     // ready joint position
    // vctDynamicVector<double> qready( qinit );
    // qready[3] =  cmnPI_2;  
-      vctDynamicVector<double> qready( wamprobe.qr);
+      vctDynamicVector<double> qready( wamprobe->qr);
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??

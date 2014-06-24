@@ -46,7 +46,7 @@ State state;
   }
 
   void Idle(){};
-  void Setqready(){state = SET};
+  void Setqready(){state = SET;};
   void SetqreadyExecute(){
 
     prmPositionJointGet q;

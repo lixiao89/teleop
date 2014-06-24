@@ -98,6 +98,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
         control->AddEventHandlerVoid( &mtsHybridForcePosition::Force, 
                                       this, 
                                       "Force" );
+        control->AddEventHandlerVoid( &mtsHybridForcePosition::Hybrid, 
+                                      this, 
+                                      "Hybrid" );
+
     }
 
     increase = AddInterfaceRequired( "CAM+", MTS_OPTIONAL );
@@ -327,7 +331,7 @@ void mtsHybridForcePosition::HybridControl(){
                // vctFrame4x4<double> Rtwts( Rt.Rotation(), Rt.Translation() );
                 vctFrame4x4<double> Rtwts(Rtwt);
                 // move along the X axis for 0.05m
-                Rtwts[1-1][4-1] += 0.05;
+                Rtwts[1-1][4-1] += 0.05; // CHANGE THIS to the correct direction and value
 
                 // create a 100ms trajectory 
                 if( traj != NULL ) { delete traj; }
@@ -354,7 +358,8 @@ void mtsHybridForcePosition::HybridControl(){
             }
 
             // this is the desired position of the slave
-            vctFrame4x4<double> Rtwts = Rtwtsold * Rttt;
+           // vctFrame4x4<double> Rtwts = Rtwtsold * Rttt;
+              Rtwts = Rtwtsold * Rttt;
 
             // extract the rotation of the tool
             vctMatrixRotation3<double> Rwt( Rtwt.Rotation() );
@@ -374,7 +379,7 @@ void mtsHybridForcePosition::HybridControl(){
             // desired force
             vctDynamicVector<double> fts( 6, 0.0 );
            // fts[2] = fz;
-            fts[2] = 5;
+            fts[2] = 5; // CHANGE THIS to the right value !
 
             // if non zero desired force along Z
             if( 0 < fabs( fts[2] ) ){
