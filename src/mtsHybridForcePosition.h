@@ -113,7 +113,7 @@ private:
   void Reset(){ state = RESET; }
   void Force(){ fz -= 5.0; }
   void Enable(){ enable = !enable; }
-
+  void Move();
   bool IsEnabled(){ return enable; }
 
  public:

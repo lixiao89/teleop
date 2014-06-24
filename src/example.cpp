@@ -87,8 +87,9 @@ int main(int argc, char** argv){
     kb.AddKeyVoidEvent( 't', "Control", "Test" );
     kb.AddKeyVoidEvent( 'f', "Control", "Force" );
 
+    kb.AddKeyVoidEvent( 'm', "Control", "Move" );
     kb.AddKeyVoidEvent( 'h', "Control", "Hybrid" );
-    kb.AddKeyVoidEvent( 's', "Setqr", "Setqready");
+    //kb.AddKeyVoidEvent( 's', "Setqr", "Setqready");
  
     taskManager->AddComponent( &kb );
 
@@ -101,7 +102,7 @@ int main(int argc, char** argv){
 
 // Setting up keyboard to acquire ready joint position "qready"
 
-    WAMprobe* wamprobe = new WAMprobe();
+    /*WAMprobe* wamprobe = new WAMprobe();
 
     taskManager->AddComponent( wamprobe );
 
@@ -118,14 +119,12 @@ if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output"
               << wamprobe->GetName() << "::Input to "
               << WAM.GetName()  << "::Output" << std::endl;
         return -1;
-      }
+      }*/
 
-
-    
     // ready joint position
-   // vctDynamicVector<double> qready( qinit );
-   // qready[3] =  cmnPI_2;  
-      vctDynamicVector<double> qready( wamprobe->qr);
+    vctDynamicVector<double> qready( qinit );
+    qready[3] =  cmnPI_2;  
+     // vctDynamicVector<double> qready( wamprobe->qr);
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??
@@ -145,8 +144,8 @@ if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output"
     vctFrame4x4<double> Rt7t( R7t, t7t ); 
 
     // this is used to evaluate the kinematics and Jacobian
-    robManipulator* robWAM = new robManipulator( argv[2], Rtw0 );
-
+   // robManipulator* robWAM = new robManipulator( argv[2], Rtw0 );
+ robManipulator* robWAM = new robManipulator( "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob",Rtw0);
    // Create a tool and attach it to the WAM
     robManipulator* robtool = new robManipulator( Rt7t );
 
@@ -154,7 +153,7 @@ if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output"
     double mass = 0.145;
     vctFixedSizeVector<double,3> com( 0.0, 0.0, 0.03 );
 
-    // JR3 FT sensor
+    // JR3 FT sensor/
     osaJR3ForceSensor::Wrench zero( 0.0 );
     osaJR3ForceSensor* jr3 = new osaJR3ForceSensor( "/dev/comedi0",
                                                     osaJR3ForceSensor::METRIC,
