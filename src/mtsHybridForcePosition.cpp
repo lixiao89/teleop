@@ -309,7 +309,6 @@ void mtsHybridForcePosition::HybridControl(){
         }
         break;
     case HYBRID:
-
         {
 
             // desired joints (initialize to old command)
@@ -317,16 +316,19 @@ void mtsHybridForcePosition::HybridControl(){
             // Cartesian shit
             
             // Read the master
-            bool validse3 = false;
-            prmCommandSE3.GetValid( validse3 ); // desired position
+           // bool validse3 = false;
+           // prmCommandSE3.GetValid( validse3 ); // desired position
 
             // read the master command if it is valid
-            if( validse3 && IsEnabled() ){
+           // if( validse3 && IsEnabled() ){
                 
                 // desired Cartesian pose
-                vctFrm3 Rt = prmCommandSE3.Position();
-                vctFrame4x4<double> Rtwts( Rt.Rotation(), Rt.Translation() );
-                
+               // vctFrm3 Rt = prmCommandSE3.Position();
+               // vctFrame4x4<double> Rtwts( Rt.Rotation(), Rt.Translation() );
+                vctFrame4x4<double> Rtwts(Rtwt);
+                // move along the X axis for 0.05m
+                Rtwts[1-1][4-1] += 0.05;
+
                 // create a 100ms trajectory 
                 if( traj != NULL ) { delete traj; }
                 traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 1.0/100.0 );
@@ -336,11 +338,12 @@ void mtsHybridForcePosition::HybridControl(){
                 // update old cartesian master command
                 Rtwtsoldcmd = Rtwts;
 
-            }
+           // }
 
             // Evaluate the motion increment from the trajectory
             vctFrame4x4<double> Rttt; // trajectory motion increment
-            if( traj != NULL && IsEnabled() ){
+           //if( traj != NULL && IsEnabled() ){
+           if( traj != NULL ){
                 vctFrame4x4<double> Rtwt;
                 vctFixedSizeVector<double,6> vw( 0.0 ), vdwd( 0.0 );
                 traj->Evaluate( osaGetTime()-timer, Rtwt, vw, vdwd );
@@ -370,8 +373,9 @@ void mtsHybridForcePosition::HybridControl(){
             
             // desired force
             vctDynamicVector<double> fts( 6, 0.0 );
-            fts[2] = fz;
-            
+           // fts[2] = fz;
+            fts[2] = 5;
+
             // if non zero desired force along Z
             if( 0 < fabs( fts[2] ) ){
                 osaHybridForcePosition::Mask 
@@ -402,8 +406,8 @@ void mtsHybridForcePosition::HybridControl(){
             SetPosition( prmq );
             qsold = qs;
 
-            validse3 = false;
-            prmCommandSE3.SetValid( validse3 ); // desired position
+           // validse3 = false;
+           // prmCommandSE3.SetValid( validse3 ); // desired position
             
         }
         break;

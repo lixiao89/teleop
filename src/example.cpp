@@ -41,8 +41,7 @@ int main(int argc, char** argv){
     kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
 
 
-    taskManager->AddComponent( &kb );
-
+   
   osaSocketCAN can( argv[1], osaCANBus::RATE_1000 );
   if( can.Open() != osaCANBus::ESUCCESS ){
     CMN_LOG_RUN_ERROR << argv[0] << "Failed to open " << argv[1] << std::endl;
@@ -76,38 +75,21 @@ int main(int argc, char** argv){
 			     OSA_CPU3 );
   taskManager->AddComponent( &GC );
 
-// ------------ Use key 'C' to enable GC controller ---------
-
-// Control is a provided interface created by mtsController
- if( !taskManager->Connect( kb.GetName(), "GCEnable",
-			    GC.GetName(), "Control") ){
-    std::cout << "Failed to connect: "
-	      << kb.GetName() << "::GCEnable to "
-	      << GC.GetName() << "::Control" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Input",
-			     GC.GetName(),  "Output" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Input to "
-	      << GC.GetName()  << "::Output" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Output",
-			     GC.GetName(),  "Input" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Output to "
-	      << GC.GetName()  << "::Input" << std::endl;
-    return -1;
-  }
-
-
-
 
   //-------------- Setting up Hybrid Control ------------------------
   
+    
+   // mtsKeyboard kb;
+   // kb.SetQuitKey( 'q' );
+   // AddKeyVoidEvent creates provided interfaces
+    kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
+    kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
+    kb.AddKeyVoidEvent( 't', "Control", "Test" );
+    kb.AddKeyVoidEvent( 'f', "Control", "Force" );
+    kb.AddKeyVoidEvent( 's', "Setqr", "Setqready");
+ 
+    taskManager->AddComponent( &kb );
+
 
  // initial joint position
     vctDynamicVector<double> qinit( 7, 0.0 );
@@ -115,20 +97,36 @@ int main(int argc, char** argv){
     qinit[3] =  cmnPI;  
     qinit[5] = -cmnPI_2;
 
-    // ready joint position
-    vctDynamicVector<double> qready( qinit );
-    qready[3] =  cmnPI_2;  
+// Setting up keyboard to acquire ready joint position "qready"
 
-    // pos/ori of link 0 wrt world
-   /* vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
-                                     0.0,  1.0,  0.0,
-                                     1.0,  0.0,  0.0 );
+    WAMprobe* wamprobe = new WAMproble();
 
-    vctFixedSizeVector<double,3> tw0(0.0);
-    vctFrame4x4<double> Rtw0( Rw0, tw0 );*/
+    taskManager->AddComponent( wamprobe );
+
+   if( !taskManager->Connect( wamprobe->GetName(), "Setqr", kb.GetName(), "Setqr"){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::Control to "
+	      << ctrl->GetName() << "::Control" << std::endl;
+    return -1;
+  }
+
+
+if( !taskManager->Connect( wamprobe.GetName(), "Input",WAM.GetName(),  "Output" ) ){
+        std::cout << "Failed to connect: "
+              << wamprobe.GetName() << "::Input to "
+              << WAM.GetName()  << "::Output" << std::endl;
+        return -1;
+      }
+
+
     
+    // ready joint position
+   // vctDynamicVector<double> qready( qinit );
+   // qready[3] =  cmnPI_2;  
+      vctDynamicVector<double> qready( wamprobe.qr);
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
+ // Change this??
     vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
                                     0.0000,  1.0000,   0.0000,
                                     0.3090,  0.0000,   0.9511,
@@ -142,12 +140,12 @@ int main(int argc, char** argv){
     vctMatrixRotation3<double> R7t( Rst );
     // position of the TCP wrt WAM link 7
     vctFixedSizeVector<double,3> t7t( 0.0, 0.0, 0.15 );
-    vctFrame4x4<double> Rt7t( R7t, t7t );
+    vctFrame4x4<double> Rt7t( R7t, t7t ); 
 
     // this is used to evaluate the kinematics and Jacobian
     robManipulator* robWAM = new robManipulator( argv[2], Rtw0 );
 
-    // Create a tool and attach it to the WAM
+   // Create a tool and attach it to the WAM
     robManipulator* robtool = new robManipulator( Rt7t );
 
     // mass and center of the tool (measured)
@@ -180,15 +178,6 @@ int main(int argc, char** argv){
     osaPIDAntiWindup* osapid = NULL;
     osapid = new osaPIDAntiWindup( Kp, Ki, Kd, Kt, limits, qinit );
 
-    // WAM part
-   /* osaSocketCAN can( argv[3], osaCANBus::RATE_1000 );
-
-    if( can.Open() != osaCANBus::ESUCCESS ){
-        std::cout << argv[0] << "Failed to open " << argv[3] << std::endl;
-        return -1;
-    }*/
-
-
     osaWAM* wam = new osaWAM( &can );
     wam->Initialize();
     wam->SetPositions( qinit );
@@ -211,17 +200,39 @@ int main(int argc, char** argv){
 
     mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid );
     taskManager->AddComponent( mtspid );
-    
-   // mtsKeyboard kb;
-   // kb.SetQuitKey( 'q' );
-   // AddKeyVoidEvent creates provided interfaces
-    kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
-    kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
-    kb.AddKeyVoidEvent( 't', "Control", "Test" );
-    kb.AddKeyVoidEvent( 'f', "Control", "Force" );
-    taskManager->AddComponent( &kb );
 
-    // connecting keyboard to hybrid controller
+// ------------------- Connecting ---------------------------
+
+// ------------ Use key 'C' to enable GC controller ---------
+
+// Control is a provided interface created by mtsController
+ if( !taskManager->Connect( kb.GetName(), "GCEnable",
+			    GC.GetName(), "Control") ){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::GCEnable to "
+	      << GC.GetName() << "::Control" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Input",
+			     GC.GetName(),  "Output" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Input to "
+	      << GC.GetName()  << "::Output" << std::endl;
+    return -1;
+  }
+
+  if( !taskManager->Connect( WAM.GetName(), "Output",
+			     GC.GetName(),  "Input" ) ){
+    std::cout << "Failed to connect: "
+	      << WAM.GetName() << "::Output to "
+	      << GC.GetName()  << "::Input" << std::endl;
+    return -1;
+  }
+
+
+
+//----------- connecting keyboard to hybrid controller------------
     // WRONG USE??
  if( !taskManager->Connect( kb.GetName(), "Control",
 			    ctrl->GetName(), "Control") ){
@@ -241,14 +252,7 @@ int main(int argc, char** argv){
 	      << ctrl->GetName() << ":Slave" << std::endl;
     return -1;
   }
-  // instantiate and initialize hybrid force position controller
- // mtsHybridForcePosition HFP("HFP");
- // taskManager->AddComponent(&HFP);
  
-
-
-
-
   taskManager->CreateAll();
   taskManager->StartAll();
 
