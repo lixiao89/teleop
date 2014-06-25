@@ -11,6 +11,9 @@
 #
 # --- end cisst license ---
 
+
+cmake_minimum_required(VERSION 2.8)
+
 set(
   REQUIRED_CISST_LIBRARIES
   cisstCommon

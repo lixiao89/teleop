@@ -1,5 +1,12 @@
-#include <sawControllers/osaPIDAntiWindup.h>
+#ifndef _MTSPIDANTIWINDUP_H
+#define _MTSPIDANTIWINDUP_H
 
+#include <sawControllers/osaPIDAntiWindup.h>
+#include <sawBarrett/osaWAM.h>
+#include <cisstMultiTask/mtsInterfaceProvided.h>
+#include <cisstMultiTask/mtsTaskPeriodic.h>
+
+#include <cisstParameterTypes/prmPositionJointGet.h>
 class mtsPIDAntiWindup : public mtsTaskPeriodic {
     
     osaPIDAntiWindup* pid;
@@ -20,9 +27,9 @@ public:
         wam( wam ),
         pid( pid ){
         
-        if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
+       /* if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
             CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
-        }
+        }*/
         qs.Position() = q.Position();
 
         slave = AddInterfaceProvided( "Slave" );
@@ -133,3 +140,4 @@ public:
 
 };
 
+#endif

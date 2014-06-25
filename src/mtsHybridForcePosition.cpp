@@ -98,9 +98,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
         control->AddEventHandlerVoid( &mtsHybridForcePosition::Force, 
                                       this, 
                                       "Force" );
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Hybrid, 
                                       this, 
-                                      "Hybrid" );
         control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
                                       this,
                                       "Move");
@@ -288,12 +286,12 @@ void mtsHybridForcePosition::Move(){
              Rtwtsoldcmd = robot.ForwardKinematics( qready );
              Rtwtsoldtrj = robot.ForwardKinematics( qready );
 
-
+            std::cout << "ready x position is:"<<Rtwtsold[1-1][4-1]<<std::endl;
             vctFrame4x4<double> Rtwts(Rtwt);
 
             Rtwtsoldcmd = Rtwt;
             // move along the X axis for 0.05m
-            Rtwts[1-1][4-1] -= -0.05; // CHANGE THIS to the correct direction and value
+            Rtwts[1-1][4-1] -= -0.1; // CHANGE THIS to the correct direction and value
 
             // create a 10s trajectory from qready to Rtwts
             if( traj != NULL ) { delete traj; }
@@ -305,7 +303,7 @@ void mtsHybridForcePosition::Move(){
            // }
           
            jr3->Zero( Rtwtsold );
-           state = HYBRID;
+          // state = HYBRID;
 
         }
 

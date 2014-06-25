@@ -65,7 +65,7 @@ int main(int argc, char** argv){
                                    1.0,  0.0,  0.0 );
   vctFixedSizeVector<double,3> tw0(0.0);
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
-
+ 
   // instantiate and initialize GC controller
   mtsGravityCompensation GC( "GC", 
 			     0.002, 
@@ -73,12 +73,14 @@ int main(int argc, char** argv){
                 "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob",
 			     Rtw0,
 			     OSA_CPU3 );
+
+
   taskManager->AddComponent( &GC );
 
 
   //-------------- Setting up Hybrid Control ------------------------
   
-    
+ 
    // mtsKeyboard kb;
    // kb.SetQuitKey( 'q' );
    // AddKeyVoidEvent creates provided interfaces
@@ -88,8 +90,6 @@ int main(int argc, char** argv){
     kb.AddKeyVoidEvent( 'f', "Control", "Force" );
 
     kb.AddKeyVoidEvent( 'm', "Control", "Move" );
-    kb.AddKeyVoidEvent( 'h', "Control", "Hybrid" );
-    //kb.AddKeyVoidEvent( 's', "Setqr", "Setqready");
  
     taskManager->AddComponent( &kb );
 
@@ -99,27 +99,6 @@ int main(int argc, char** argv){
     qinit[1] = -cmnPI_2;
     qinit[3] =  cmnPI;  
     qinit[5] = -cmnPI_2;
-
-// Setting up keyboard to acquire ready joint position "qready"
-
-    /*WAMprobe* wamprobe = new WAMprobe();
-
-    taskManager->AddComponent( wamprobe );
-
-   if( !taskManager->Connect( wamprobe->GetName(), "Setqr", kb.GetName(), "Setqr")){
-    std::cout << "Failed to connect: "
-	      << wamprobe->GetName() << "::Control to "
-	      << kb.GetName() << "::Control" << std::endl;
-    return -1;
-  }
-
-
-if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output" ) ){
-        std::cout << "Failed to connect: "
-              << wamprobe->GetName() << "::Input to "
-              << WAM.GetName()  << "::Output" << std::endl;
-        return -1;
-      }*/
 
     // ready joint position
     vctDynamicVector<double> qready( qinit );
@@ -190,13 +169,20 @@ if( !taskManager->Connect( wamprobe->GetName(), "Input",WAM.GetName(),  "Output"
     hfp = new osaHybridForcePosition( mask, robWAM, K );
     
     osaGravityCompensation* gc = NULL;
-    gc = new osaGravityCompensation( argv[2], Rtw0 );
+    //gc = new osaGravityCompensation( argv[2], Rtw0 );
+    gc = new osaGravityCompensation( "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob", Rtw0 );
 
     mtsHybridForcePosition* ctrl = NULL;
     // Control is a required interface
+    //ctrl = new mtsHybridForcePosition( "Control", 1.0/500.0,
+    //                                   argv[2], Rtw0, Rt7t, qinit, qready,
+    //                                   jr3, gc, hfp );
     ctrl = new mtsHybridForcePosition( "Control", 1.0/500.0,
-                                       argv[2], Rtw0, Rt7t, qinit, qready,
-                                       jr3, gc, hfp );
+                                       "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob", Rtw0, Rt7t, qinit, qready,jr3, gc, hfp );
+
+
+
+                                      
     taskManager->AddComponent( ctrl );
 
     mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid );
