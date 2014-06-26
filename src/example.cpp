@@ -17,7 +17,6 @@
 
 #include "mtsHybridForcePosition.h"
 #include "mtsPIDAntiWindup.h"
-#include "WAMprobe.h"
 
 //================== MAIN =========================
 
@@ -27,19 +26,13 @@ int main(int argc, char** argv){
     cmnLogger::SetMaskFunction( CMN_LOG_ALLOW_ALL );
     cmnLogger::SetMaskDefaultLog( CMN_LOG_ALLOW_ALL );
     
-   /* if( argc != 4 ){
-        std::cout << "Usage: " << argv[0] << " GCM robfile can0-1" <<std::endl;
-        return -1;
-    }*/
-
     mtsTaskManager* taskManager = mtsTaskManager::GetInstance();
 
     mtsKeyboard kb;
     kb.SetQuitKey( 'q' );
     // Add key 'C' to enable gravity compensation 
     // GCEnable is a required interface created by AddKeyWriteFunction
-    kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
-
+//    kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
 
    
   osaSocketCAN can( argv[1], osaCANBus::RATE_1000 );
@@ -48,16 +41,18 @@ int main(int argc, char** argv){
     return -1;
   }
 
-  mtsWAM WAM( "WAM", &can, osaWAM::WAM_7DOF, OSA_CPU4, 80 );
+/*  mtsWAM WAM( "WAM", &can, osaWAM::WAM_7DOF, OSA_CPU4, 80 );
+  std::cout << "configure" << std::endl;
   WAM.Configure();
+  std::cout << "configure" << std::endl;
   WAM.SetPositions( vctDynamicVector<double>(7, 
   					     0.0, -cmnPI_2, 0.0, cmnPI, 
   					     0.0, -cmnPI_2, 0.0 ) );
+  std::cout << "configure" << std::endl;
   taskManager->AddComponent( &WAM );
 
-
  // cmnPath path;
- // path.AddRelativeToCisstShare("/models/WAM");
+ // path.AddRelativeToCisstShare("/models/WAM");*/
 
   // Rotate the base
   vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
@@ -67,7 +62,7 @@ int main(int argc, char** argv){
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
  
   // instantiate and initialize GC controller
-  mtsGravityCompensation GC( "GC", 
+/*  mtsGravityCompensation GC( "GC", 
 			     0.002, 
 			    // path.Find( "wam7.rob" ), 
                 "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob",
@@ -75,7 +70,8 @@ int main(int argc, char** argv){
 			     OSA_CPU3 );
 
 
-  taskManager->AddComponent( &GC );
+  taskManager->AddComponent( &GC );*/
+
 
 
   //-------------- Setting up Hybrid Control ------------------------
@@ -93,7 +89,6 @@ int main(int argc, char** argv){
  
     taskManager->AddComponent( &kb );
 
-
  // initial joint position
     vctDynamicVector<double> qinit( 7, 0.0 );
     qinit[1] = -cmnPI_2;
@@ -103,7 +98,6 @@ int main(int argc, char** argv){
     // ready joint position
     vctDynamicVector<double> qready( qinit );
     qready[3] =  cmnPI_2;  
-     // vctDynamicVector<double> qready( wamprobe->qr);
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??
@@ -193,7 +187,7 @@ int main(int argc, char** argv){
 // ------------ Use key 'C' to enable GC controller ---------
 
 // Control is a provided interface created by mtsController
- if( !taskManager->Connect( kb.GetName(), "GCEnable",
+/* if( !taskManager->Connect( kb.GetName(), "GCEnable",
 			    GC.GetName(), "Control") ){
     std::cout << "Failed to connect: "
 	      << kb.GetName() << "::GCEnable to "
@@ -215,14 +209,11 @@ int main(int argc, char** argv){
 	      << WAM.GetName() << "::Output to "
 	      << GC.GetName()  << "::Input" << std::endl;
     return -1;
-  }
-
-
+  }*/
 
 //----------- connecting keyboard to hybrid controller------------
-    // WRONG USE??
- if( !taskManager->Connect( kb.GetName(), "Control",
-			    ctrl->GetName(), "Control") ){
+ if( !taskManager->Connect( ctrl->GetName(), "Control",
+                            kb.GetName(), "Control") ){
     std::cout << "Failed to connect: "
 	      << kb.GetName() << "::Control to "
 	      << ctrl->GetName() << "::Control" << std::endl;
@@ -232,8 +223,8 @@ int main(int argc, char** argv){
 // connecting pid antiwindup to hybrid controller
 // Slave in mtspid is a provided interface
 // Slave in ctrl is required interface
- if( !taskManager->Connect( mtspid->GetName(), "Slave",
-			    ctrl->GetName(), "Slave") ){
+ if( !taskManager->Connect( ctrl->GetName(), "Slave", 
+                            mtspid->GetName(), "Slave") ){
     std::cout << "Failed to connect: "
 	      << mtspid->GetName() << ":Slave to "
 	      << ctrl->GetName() << ":Slave" << std::endl;
@@ -242,14 +233,11 @@ int main(int argc, char** argv){
  
   taskManager->CreateAll();
   taskManager->StartAll();
-
   pause();
 
 
-    taskManager->KillAll();
-    taskManager->WaitForStateAll(mtsComponentState::FINISHED, 2.0 * cmn_s);
-
-    taskManager->Cleanup();
+ //  taskManager->KillAll();
+ //  taskManager->Cleanup();
 
 
     //osaJR3ForceSensor jr3("/dev/comedi0");

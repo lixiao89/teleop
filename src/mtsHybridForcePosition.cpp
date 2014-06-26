@@ -291,7 +291,7 @@ void mtsHybridForcePosition::Move(){
 
             Rtwtsoldcmd = Rtwt;
             // move along the X axis for 0.05m
-            Rtwts[1-1][4-1] -= -0.1; // CHANGE THIS to the correct direction and value
+            Rtwts[1-1][4-1] += 0.1; // CHANGE THIS to the correct direction and value
 
             // create a 10s trajectory from qready to Rtwts
             if( traj != NULL ) { delete traj; }
@@ -303,7 +303,9 @@ void mtsHybridForcePosition::Move(){
            // }
           
            jr3->Zero( Rtwtsold );
-          // state = HYBRID;
+          
+            std::cout<< traj<<std::endl;
+           state = HYBRID;
 
         }
 
@@ -408,7 +410,7 @@ void mtsHybridForcePosition::Move(){
             // desired force
             vctDynamicVector<double> fts( 6, 0.0 );
            // fts[2] = fz;
-            fts[2] = -5; // CHANGE THIS to the right value !
+            fts[2] = -2; // CHANGE THIS to the right value !
 
             // if non zero desired force along Z
             if( 0 < fabs( fts[2] ) ){
