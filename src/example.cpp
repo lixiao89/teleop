@@ -9,7 +9,7 @@
 #include <cisstCommon/cmnGetChar.h>
 #include <cisstOSAbstraction/osaSleep.h>
 #include <cisstOSAbstraction/osaGetTime.h>
-#include <sawControllers/mtsGravityCompensation.h>
+//#include <sawControllers/mtsGravityCompensation.h>
 #include <sawBarrett/mtsWAM.h>
 #include <cisstMultiTask/mtsTaskManager.h>
 #include <cisstMultiTask/mtsTaskPeriodic.h>
@@ -28,31 +28,12 @@ int main(int argc, char** argv){
     
     mtsTaskManager* taskManager = mtsTaskManager::GetInstance();
 
-    mtsKeyboard kb;
-    kb.SetQuitKey( 'q' );
-    // Add key 'C' to enable gravity compensation 
-    // GCEnable is a required interface created by AddKeyWriteFunction
-//    kb.AddKeyWriteFunction( 'C', "GCEnable", "Enable", true );
-
-   
+      
   osaSocketCAN can( argv[1], osaCANBus::RATE_1000 );
   if( can.Open() != osaCANBus::ESUCCESS ){
     CMN_LOG_RUN_ERROR << argv[0] << "Failed to open " << argv[1] << std::endl;
     return -1;
   }
-
-/*  mtsWAM WAM( "WAM", &can, osaWAM::WAM_7DOF, OSA_CPU4, 80 );
-  std::cout << "configure" << std::endl;
-  WAM.Configure();
-  std::cout << "configure" << std::endl;
-  WAM.SetPositions( vctDynamicVector<double>(7, 
-  					     0.0, -cmnPI_2, 0.0, cmnPI, 
-  					     0.0, -cmnPI_2, 0.0 ) );
-  std::cout << "configure" << std::endl;
-  taskManager->AddComponent( &WAM );
-
- // cmnPath path;
- // path.AddRelativeToCisstShare("/models/WAM");*/
 
   // Rotate the base
   vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
@@ -61,32 +42,22 @@ int main(int argc, char** argv){
   vctFixedSizeVector<double,3> tw0(0.0);
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
  
-  // instantiate and initialize GC controller
-/*  mtsGravityCompensation GC( "GC", 
-			     0.002, 
-			    // path.Find( "wam7.rob" ), 
-                "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob",
-			     Rtw0,
-			     OSA_CPU3 );
-
-
-  taskManager->AddComponent( &GC );*/
-
-
+  
 
   //-------------- Setting up Hybrid Control ------------------------
   
- 
-   // mtsKeyboard kb;
-   // kb.SetQuitKey( 'q' );
+    mtsKeyboard kb;
+    kb.SetQuitKey( 'q' );
    // AddKeyVoidEvent creates provided interfaces
     kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
     kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
     kb.AddKeyVoidEvent( 't', "Control", "Test" );
     kb.AddKeyVoidEvent( 'f', "Control", "Force" );
-
+    
     kb.AddKeyVoidEvent( 'm', "Control", "Move" );
- 
+    kb.AddKeyVoidEvent( 'i', "Control", "ToIdle" );
+    kb.AddKeyVoidEvent( 'x', "GC", "Move" );
+    kb.AddKeyVoidEvent( 'G', "GC", "GravityCompensation");
     taskManager->AddComponent( &kb );
 
  // initial joint position
@@ -152,7 +123,7 @@ int main(int argc, char** argv){
     osaPIDAntiWindup* osapid = NULL;
     osapid = new osaPIDAntiWindup( Kp, Ki, Kd, Kt, limits, qinit );
 
-    osaWAM* wam = new osaWAM( &can );
+    osaWAM* wam = new osaWAM( &can, osaWAM::WAM_7DOF );
     wam->Initialize();
     wam->SetPositions( qinit );
     
@@ -173,44 +144,20 @@ int main(int argc, char** argv){
     //                                   jr3, gc, hfp );
     ctrl = new mtsHybridForcePosition( "Control", 1.0/500.0,
                                        "/home/lixiao/src/wvu-jhu/models/WAM/wam7cutter.rob", Rtw0, Rt7t, qinit, qready,jr3, gc, hfp );
-
+    //ctrl->Startup();
 
 
                                       
     taskManager->AddComponent( ctrl );
 
-    mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid );
+    mtsPIDAntiWindup* mtspid = new mtsPIDAntiWindup( "PID", 1.0/900.0, wam, osapid, gc );
     taskManager->AddComponent( mtspid );
 
 // ------------------- Connecting ---------------------------
 
-// ------------ Use key 'C' to enable GC controller ---------
+// ------------ Use key 'g' to enable GC controller ---------
 
-// Control is a provided interface created by mtsController
-/* if( !taskManager->Connect( kb.GetName(), "GCEnable",
-			    GC.GetName(), "Control") ){
-    std::cout << "Failed to connect: "
-	      << kb.GetName() << "::GCEnable to "
-	      << GC.GetName() << "::Control" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Input",
-			     GC.GetName(),  "Output" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Input to "
-	      << GC.GetName()  << "::Output" << std::endl;
-    return -1;
-  }
-
-  if( !taskManager->Connect( WAM.GetName(), "Output",
-			     GC.GetName(),  "Input" ) ){
-    std::cout << "Failed to connect: "
-	      << WAM.GetName() << "::Output to "
-	      << GC.GetName()  << "::Input" << std::endl;
-    return -1;
-  }*/
-
+ 
 //----------- connecting keyboard to hybrid controller------------
  if( !taskManager->Connect( ctrl->GetName(), "Control",
                             kb.GetName(), "Control") ){
@@ -219,6 +166,15 @@ int main(int argc, char** argv){
 	      << ctrl->GetName() << "::Control" << std::endl;
     return -1;
   }
+
+if( !taskManager->Connect( mtspid->GetName(), "GC",
+                            kb.GetName(), "GC") ){
+    std::cout << "Failed to connect: "
+	      << kb.GetName() << "::GC to "
+	      << mtspid->GetName() << "::GC" << std::endl;
+    return -1;
+  }
+
 
 // connecting pid antiwindup to hybrid controller
 // Slave in mtspid is a provided interface

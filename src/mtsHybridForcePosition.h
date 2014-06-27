@@ -31,14 +31,19 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmEventButton.h>
 
 #include <sawJR3ForceSensor/osaJR3ForceSensor.h>
-#include <sawControllers/osaGravityCompensation.h>
 #include "osaHybridForcePosition.h"
 
 #include <cisstRobot/robLinearSE3.h>
+#include <sawControllers/osaGravityCompensation.h>
 
 #include <cisstNumerical/nmrLSMinNorm.h>
 #include <cisstNumerical/nmrSavitzkyGolay.h>
 
+#include <sawBarrett/osaWAM.h>
+
+#include <sstream>
+#include <iostream>
+#include <fstream>
 class mtsHybridForcePosition : public mtsTaskPeriodic {
 
 private:
@@ -57,26 +62,22 @@ private:
   // JR3 sensor
   osaJR3ForceSensor* jr3;
 
+  // WAM
+  osaWAM* wam;
   //
   osaGravityCompensation* gc;
   osaHybridForcePosition* hfp;
   
   // interfaces
-  mtsInterfaceProvided* mastertel;
-  mtsInterfaceProvided* mastercmd;
   mtsInterfaceRequired* slave;
   mtsInterfaceRequired* control;
-  mtsInterfaceRequired* increase;
-  mtsInterfaceRequired* decrease;
-
-  
 
   // Control
   vctDynamicVector<double> qready;
   vctDynamicVector<double> qsold;
   vctDynamicVector<double> tauold;
 
-  enum State{ IDLE, RESET, ENABLE, TEST, HYBRID };
+  enum State{ DONOTHING, IDLE, RESET, ENABLE, TEST, HYBRID, GC };
   State state;
   bool enable;
 
@@ -92,6 +93,7 @@ private:
   //! Write the joint torques
   mtsFunctionWrite SetPosition;
 
+
   // Master side 
   prmPositionCartesianGet prmCommandSE3;    // Cartesian command (master side)
   prmPositionCartesianGet prmTelemetrySE3;  // Cartesian telemetry
@@ -99,14 +101,16 @@ private:
 
   void HybridControl();
   void MoveToReady();
-  
+  void Idle(); 
   vctDynamicVector<double> sg;
-  std::list< osaJR3ForceSensor::Wrench > stdft;    
+  std::list< osaJR3ForceSensor::Wrench > stdft;  
 
+
+    
  public:
 
-  void Increase( const prmEventButton& event );
-  void Decrease( const prmEventButton& event );
+     std::ofstream ofsForceData;
+     double startTime;
 
   void Test(){ state = TEST; }
   void Hybrid(){ state = HYBRID; }
@@ -114,13 +118,13 @@ private:
   void Force(){ fz -= 5.0; }
   void Enable(){ enable = !enable; }
   void Move();
+  void ToIdle(){state = IDLE;};
   bool IsEnabled(){ return enable; }
 
  public:
   
   mtsHybridForcePosition(  const std::string& name,
 			   double period,
-                           
 			   const std::string& robotfilename, 
 			   const vctFrame4x4<double>& Rtw0,
 			   const vctFrame4x4<double>& Rtnt,

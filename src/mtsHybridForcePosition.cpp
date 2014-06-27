@@ -44,7 +44,6 @@ convolve
 mtsHybridForcePosition::mtsHybridForcePosition
 ( const std::string& name,
   double period,
-  
   const std::string& robotfilename, 
   const vctFrame4x4<double>& Rtw0,
   const vctFrame4x4<double>& Rtnt,
@@ -56,7 +55,6 @@ mtsHybridForcePosition::mtsHybridForcePosition
   osaHybridForcePosition* hfp ):
     
     mtsTaskPeriodic( name, period, true ),
-
     robot( robotfilename, Rtw0 ),
     tool( Rtnt ),
     traj( NULL ),
@@ -67,8 +65,6 @@ mtsHybridForcePosition::mtsHybridForcePosition
     gc( gc ),
     hfp( hfp ),
     
-    mastertel( NULL ),
-    mastercmd( NULL ),
     slave( NULL ),
     control( NULL ),
 
@@ -76,7 +72,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
     qsold( qinit ),
     tauold( 7, 0.0 ),
     
-    state( IDLE ),
+    state( DONOTHING ),
     enable( false ),
 
     fz( 0.0 ),
@@ -102,47 +98,16 @@ mtsHybridForcePosition::mtsHybridForcePosition
         control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
                                       this,
                                       "Move");
+        control->AddEventHandlerVoid( &mtsHybridForcePosition::ToIdle,
+                                      this,
+                                      "ToIdle");
 
-    }
+       }
 
-    increase = AddInterfaceRequired( "CAM+", MTS_OPTIONAL );
-    if( increase ){
-        increase->AddEventHandlerWrite( &mtsHybridForcePosition::Increase, 
-                                        this, 
-                                        "Button" );
-    }
 
-    decrease = AddInterfaceRequired( "CAM-", MTS_OPTIONAL );
-    if( decrease ){
-        decrease->AddEventHandlerWrite( &mtsHybridForcePosition::Decrease,
-                                        this,
-                                        "Button" );
-    }
 
-    // This connects to the master
-    mastertel = AddInterfaceProvided( "Output" );
-    if( mastertel ){ 
-        prmTelemetryRn.SetSize( 7 );
-        prmTelemetryRn.Position().SetAll( 0 );
-        StateTable.AddData( prmTelemetryRn,  "TelemetryRn" );
-        mastertel->AddCommandReadState( StateTable, 
-                                        prmTelemetryRn, 
-                                        "GetPositionJoint" );
-
-        StateTable.AddData( prmTelemetrySE3, "TelemetrySE3" );
-        mastertel->AddCommandReadState( StateTable,
-                                        prmTelemetrySE3,
-                                        "GetPositionCartesian" );
-
-    }
-
-    mastercmd = AddInterfaceProvided( "Input" );
-    if( mastercmd ){ 
-        StateTable.AddData( prmCommandSE3, "CommandSE3" );
-        mastercmd->AddCommandWriteState( StateTable,
-                                         prmCommandSE3,
-                                         "SetPositionCartesian" );
-    }
+    //-------------------------------------------------
+    
 
     slave = AddInterfaceRequired( "Slave" );
     if( slave ){
@@ -150,38 +115,18 @@ mtsHybridForcePosition::mtsHybridForcePosition
         slave->AddFunction( "SetPositionCMD", SetPosition );
     }
 
+
+      ofsForceData.open("/home/lixiao/Desktop/Data1.txt");
+      startTime = osaGetTime();
+
 }
-  
-        void mtsHybridForcePosition::Increase( const prmEventButton& event ) { 
-        switch( event.Type() ){
-        case prmEventButton::PRESSED:
-            fz -= 5.0;
-            if( fz < -5.0 ) { fz = -5.0; }
-            std::cout << fz << std::endl;
-            break;
-        default:
-            break;
-        }
-        
-    }
-
-    void mtsHybridForcePosition::Decrease( const prmEventButton& event ){
-        switch( event.Type() ){
-        case prmEventButton::PRESSED:
-            fz += 5.0;
-            if( 0.0 < fz ) { fz = 0.0; }
-            std::cout << fz << std::endl;
-            break;
-        default:
-            break;
-        }
-    }
-
+ 
     void mtsHybridForcePosition::Configure( const std::string& ){}
     void mtsHybridForcePosition::Startup(){
         osaCPUSetAffinity( OSA_CPU2 );
         Thread.SetPriority( 70 );
     }
+
     void mtsHybridForcePosition::Run(){ 
         
         // Timing stuff
@@ -216,8 +161,44 @@ mtsHybridForcePosition::mtsHybridForcePosition
         ProcessQueuedCommands(); 
         ProcessQueuedEvents(); 
 
-        if( state == RESET ) { MoveToReady();   }
-        else                 { HybridControl(); }
+        if( state == RESET )   { MoveToReady();   }
+        else if(state == IDLE) { Idle();          }
+        else                   { HybridControl(); }
+
+    }
+
+    void mtsHybridForcePosition::Idle(){
+
+        timer = osaGetTime();
+
+              // current joints
+        prmPositionJointGet prmq; 
+        GetPosition( prmq );
+        vctDynamicVector<double> q = prmq.Position();
+
+        // current Cartesian pose
+        vctFrame4x4<double> Rtwt = robot.ForwardKinematics( q );
+       
+
+            // extract the rotation of the tool
+            vctMatrixRotation3<double> Rwt( Rtwt.Rotation() );
+            
+            // now get the orientation of the sensor
+            vctMatrixRotation3<double> Rws( Rwt * Rts );
+
+            // Current force, compensate for sensor orientation
+            osaJR3ForceSensor::Wrench ft;
+            jr3->Read( ft, Rws, true, 3 );
+            
+            // filter the reading
+            stdft.push_back( ft );
+            if( sg.size() < stdft.size() ) { stdft.pop_front(); }
+            ft = convolve( stdft, sg );
+            
+          //  std::cout<<ft[0]<<",   "<<ft[1]<<",   "<<ft[2]<<",   "<<ft[3]<<",   "<<ft[4]<<",   "<<ft[5]<<std::endl;
+
+            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<", "<<ft[3]<<", "<<ft[4]<<", "<<ft[5]<<std::endl;
+
 
     }
 
@@ -291,11 +272,11 @@ void mtsHybridForcePosition::Move(){
 
             Rtwtsoldcmd = Rtwt;
             // move along the X axis for 0.05m
-            Rtwts[1-1][4-1] += 0.1; // CHANGE THIS to the correct direction and value
+            Rtwts[1-1][4-1] -= 0.5; // CHANGE THIS to the correct direction and value
 
             // create a 10s trajectory from qready to Rtwts
             if( traj != NULL ) { delete traj; }
-            traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 10.0 );
+            traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 0.05, 0.05, 10.0 );
                
             // update old cartesian master command
             //Rtwtsoldcmd = Rtwts;
@@ -305,7 +286,7 @@ void mtsHybridForcePosition::Move(){
            jr3->Zero( Rtwtsold );
           
             std::cout<< traj<<std::endl;
-           state = HYBRID;
+          // state = HYBRID;
 
         }
 
@@ -410,7 +391,7 @@ void mtsHybridForcePosition::Move(){
             // desired force
             vctDynamicVector<double> fts( 6, 0.0 );
            // fts[2] = fz;
-            fts[2] = -2; // CHANGE THIS to the right value !
+            fts[2] = 7; // CHANGE THIS to the right value !
 
             // if non zero desired force along Z
             if( 0 < fabs( fts[2] ) ){

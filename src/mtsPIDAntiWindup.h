@@ -2,34 +2,49 @@
 #define _MTSPIDANTIWINDUP_H
 
 #include <sawControllers/osaPIDAntiWindup.h>
-#include <sawBarrett/osaWAM.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 #include <cisstMultiTask/mtsTaskPeriodic.h>
+#include <sawBarrett/osaWAM.h>
+#include <cisstMultiTask/mtsInterfaceRequired.h>
 
+#include <sawControllers/osaGravityCompensation.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
 class mtsPIDAntiWindup : public mtsTaskPeriodic {
     
     osaPIDAntiWindup* pid;
     osaWAM* wam;
+    osaGravityCompensation* gc;
 
     mtsInterfaceProvided* slave;
+    mtsInterfaceRequired* GC;
+
+    enum State{ PID, GCOMP };
+    State state;
+
     prmPositionJointGet qs;
     prmPositionJointGet q;
     std::list<double> dt;
 
+
+  void GravityCompensation(){state = GCOMP;};
+  void Move()               {state = PID;};
 public:
 
+    
     mtsPIDAntiWindup( const std::string& name,
                       double period,
                       osaWAM* wam,
-                      osaPIDAntiWindup* pid ) :
+                      osaPIDAntiWindup* pid, 
+                      osaGravityCompensation* gc) :
         mtsTaskPeriodic( name, period ),
         wam( wam ),
-        pid( pid ){
+        pid( pid ),
+        gc( gc ),
+        state(PID){
         
-       /* if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
+        if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
             CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
-        }*/
+        }
         qs.Position() = q.Position();
 
         slave = AddInterfaceProvided( "Slave" );
@@ -44,6 +59,19 @@ public:
                               << std::endl;
         }
         
+        GC = AddInterfaceRequired("GC");
+        if( GC ){
+
+          GC->AddEventHandlerVoid( &mtsPIDAntiWindup::GravityCompensation,
+                                      this,
+                                      "GravityCompensation");
+ 
+          GC->AddEventHandlerVoid( &mtsPIDAntiWindup::Move,
+                                      this,
+                                      "Move");
+ 
+
+        }
     }
     ~mtsPIDAntiWindup(){}
 
@@ -116,8 +144,38 @@ public:
         ProcessQueuedCommands(); 
         ProcessQueuedEvents(); 
 
-        // current joints
-        if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
+        if(state == GCOMP){
+
+            RunGC();
+        }
+        else{
+                // current joints
+                if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
+                    CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
+                    bool valid=false;
+                    q.SetValid( valid );
+                }
+                else{
+                    bool valid=true;
+                    q.SetValid( valid );
+                }
+
+                bool valid=false;
+                qs.GetValid( valid );
+                if( valid ){
+                    //std::cout << GetName() << " " << qs.Position() << std::endl;
+                    SendTorques( PIDEvaluate( q.Position(), qs.Position() ) ); 
+                }
+                else{
+                    SendTorques( vctDynamicVector<double>( 7, 0.0 ) ); 
+                }
+        }
+    }
+
+
+void RunGC(){
+
+      if( wam->GetPositions( q.Position() ) != osaWAM::ESUCCESS ){
             CMN_LOG_RUN_ERROR << "Failed to get positions" << std::endl;
             bool valid=false;
             q.SetValid( valid );
@@ -127,16 +185,24 @@ public:
             q.SetValid( valid );
         }
 
-        bool valid=false;
-        qs.GetValid( valid );
-        if( valid ){
-            //std::cout << GetName() << " " << qs.Position() << std::endl;
-            SendTorques( PIDEvaluate( q.Position(), qs.Position() ) ); 
+        vctDynamicVector<double> tau( q.Position().size(), 0.0 );
+      if( gc != NULL && state == GCOMP ){
+
+        if( gc->Evaluate( q.Position(), tau ) != 
+          osaGravityCompensation::ESUCCESS ){
+          CMN_LOG_RUN_ERROR << "Faile to evaluate the controller" << std::endl;
+        }
+
+       //vctDynamicVector<double> qc( prmq.Position() );
+       
+            SendTorques( tau ); 
         }
         else{
             SendTorques( vctDynamicVector<double>( 7, 0.0 ) ); 
         }
-    }
+
+        }
+
 
 };
 
