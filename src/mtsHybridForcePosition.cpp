@@ -197,7 +197,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
             
           //  std::cout<<ft[0]<<",   "<<ft[1]<<",   "<<ft[2]<<",   "<<ft[3]<<",   "<<ft[4]<<",   "<<ft[5]<<std::endl;
 
-            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<", "<<ft[3]<<", "<<ft[4]<<", "<<ft[5]<<std::endl;
+            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<", "<<ft[3]<<", "<<ft[4]<<", "<<ft[5]<<", "<<<<std::endl;
 
 
     }
