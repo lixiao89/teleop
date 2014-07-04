@@ -197,7 +197,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
             
           //  std::cout<<ft[0]<<",   "<<ft[1]<<",   "<<ft[2]<<",   "<<ft[3]<<",   "<<ft[4]<<",   "<<ft[5]<<std::endl;
 
-            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<", "<<ft[3]<<", "<<ft[4]<<", "<<ft[5]<<", "<<<<std::endl;
+            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
 
 
     }
@@ -278,14 +278,9 @@ void mtsHybridForcePosition::Move(){
             if( traj != NULL ) { delete traj; }
             traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 0.05, 0.05, 10.0 );
                
-            // update old cartesian master command
-            //Rtwtsoldcmd = Rtwts;
-
-           // }
-          
            jr3->Zero( Rtwtsold );
           
-            std::cout<< traj<<std::endl;
+           // std::cout<< traj<<std::endl;
           // state = HYBRID;
 
         }
