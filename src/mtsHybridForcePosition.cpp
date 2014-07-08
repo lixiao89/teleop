@@ -55,12 +55,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
   osaHybridForcePosition* hfp ):
     
     mtsTaskPeriodic( name, period, true ),
-    robot( robotfilename, Rtw0 ),
-    tool( Rtnt ),
     traj( NULL ),
     timer( 0.0 ),
     Rts( Rtnt.Rotation().Transpose() ),
-    
+    Rtnt(Rtnt),
     jr3( jr3 ),
     gc( gc ),
     hfp( hfp ),
@@ -82,20 +80,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
     
     control = AddInterfaceRequired( "Control" );
     if( control ){
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Reset, 
-                                      this, 
-                                      "Reset" );
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Enable, 
+       control->AddEventHandlerVoid( &mtsHybridForcePosition::Enable, 
                                       this, 
                                       "Enable" );
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Test, 
-                                      this, 
-                                      "Test" );
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Force, 
-                                      this, 
-                                      "Force" );
-                                      this, 
-        control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
+       control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
                                       this,
                                       "Move");
         control->AddEventHandlerVoid( &mtsHybridForcePosition::ToIdle,
@@ -144,21 +132,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
                 avg += *it;
                 if( max < *it ) max = *it;
             }
-            //std::cout << fabs(GetPeriodicity() - avg / dt.size()) << " " 
-            //        << fabs( GetPeriodicity() - max ) << std::endl;
-            dt.clear();
+           dt.clear();
         }
         
-        /*
-        cpu_set_t mask;
-        sched_getaffinity( 0, sizeof( cpu_set_t ), &mask );
-        std::cout << CPU_ISSET( 0, &mask ) << " "
-                  << CPU_ISSET( 1, &mask ) << " "
-                  << CPU_ISSET( 2, &mask ) << " "
-                  << CPU_ISSET( 3, &mask ) << std::endl;            
-        */
-        // get all the stuff 
-        ProcessQueuedCommands(); 
+       ProcessQueuedCommands(); 
         ProcessQueuedEvents(); 
 
         if( state == RESET )   { MoveToReady();   }
@@ -307,49 +284,11 @@ void mtsHybridForcePosition::Move(){
 
         switch( state ){
 
-        case TEST:
-            {
-                double f=0.5;
-                static double t = 0.0;
-
-                qsold[0] += f*0.0005*sin( t );
-                qsold[1] += f*0.001*sin( t );
-                qsold[2] += f*0.0005*sin( t );
-                qsold[3] -= f*0.001*sin( t );
-                qsold[4] += f*0.0005*sin( t );
-                qsold[5] += f*0.001*sin( t );
-                qsold[6] += f*0.001*sin( t );
-
-                t += 0.0005;
-                bool valid=true;
-                prmq.SetValid( valid );
-                prmq.Position() = qsold;
-                SetPosition( prmq );
-
-            }
-            break;
         case HYBRID:
             {
 
-                // desired joints (initialize to old command)
                 vctDynamicVector<double> qs( qsold );
-               //
-                // Cartesian shit
-                
-                // Read the master
-               // bool validse3 = false;
-               // prmCommandSE3.GetValid( validse3 ); // desired position
-
-                // read the master command if it is valid
-               // if( validse3 && IsEnabled() ){
-                    
-                    // desired Cartesian pose
-                   // vctFrm3 Rt = prmCommandSE3.Position();
-                   // vctFrame4x4<double> Rtwts( Rt.Rotation(), Rt.Translation() );
-                  // Evaluate the motion increment from the trajectory
-              
-                  // this is the time that the command was received
-                timer = osaGetTime();
+               timer = osaGetTime();
                 
                 vctFrame4x4<double> Rttt; // trajectory motion increment
            //if( traj != NULL && IsEnabled() ){

@@ -27,7 +27,7 @@ class mtsPIDAntiWindup : public mtsTaskPeriodic {
 
 
   void GravityCompensation(){state = GCOMP;};
-  void Move()               {state = PID;};
+  void MovePID()            {state = PID;};
 public:
 
     
@@ -66,9 +66,9 @@ public:
                                       this,
                                       "GravityCompensation");
  
-          GC->AddEventHandlerVoid( &mtsPIDAntiWindup::Move,
+          GC->AddEventHandlerVoid( &mtsPIDAntiWindup::MovePID,
                                       this,
-                                      "Move");
+                                      "MovePID");
  
 
         }
@@ -124,24 +124,10 @@ public:
                 avg += *it;
                 if( max < *it ) max = *it;
             }
-            //std::cout << std::setw(15) << 1.0/(avg/dt.size())
-            //          << std::setw(15) << fabs(GetPeriodicity()-avg/dt.size())
-            //          << std::setw(15) << fabs(GetPeriodicity()-max)
-            //          << std::endl;
-            dt.clear();
+           dt.clear();
         }
 
-        /*
-        cpu_set_t mask;
-        sched_getaffinity( 0, sizeof( cpu_set_t ), &mask );
-        std::cout << CPU_ISSET( 0, &mask ) << " "
-                  << CPU_ISSET( 1, &mask ) << " "
-                  << CPU_ISSET( 2, &mask ) << " "
-                  << CPU_ISSET( 3, &mask ) << std::endl;            
-        */
-
-        // get all the stuff 
-        ProcessQueuedCommands(); 
+       ProcessQueuedCommands(); 
         ProcessQueuedEvents(); 
 
         if(state == GCOMP){

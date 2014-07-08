@@ -58,7 +58,8 @@ private:
   vctFrame4x4<double> Rtwtsoldcmd; // previous command from the master
 
   vctMatrixRotation3<double> Rts;
-  
+  vctFrame4x4<double> Rtnt;
+
   // JR3 sensor
   osaJR3ForceSensor* jr3;
 
@@ -77,7 +78,7 @@ private:
   vctDynamicVector<double> qsold;
   vctDynamicVector<double> tauold;
 
-  enum State{ DONOTHING, IDLE, RESET, ENABLE, TEST, HYBRID, GC };
+  enum State{ DONOTHING, IDLE, RESET, ENABLE, HYBRID };
   State state;
   bool enable;
 
@@ -112,11 +113,7 @@ private:
      std::ofstream ofsForceData;
      double startTime;
 
-  void Test(){ state = TEST; }
   void Hybrid(){ state = HYBRID; }
-  void Reset(){ state = RESET; }
-  void Force(){ fz -= 5.0; }
-  void Enable(){ enable = !enable; }
   void Move();
   void ToIdle(){state = IDLE;};
   bool IsEnabled(){ return enable; }

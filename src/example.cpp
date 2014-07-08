@@ -48,15 +48,8 @@ int main(int argc, char** argv){
   
     mtsKeyboard kb;
     kb.SetQuitKey( 'q' );
-   // AddKeyVoidEvent creates provided interfaces
-    kb.AddKeyVoidEvent( 'e', "Control", "Enable" );
-    kb.AddKeyVoidEvent( 'r', "Control", "Reset" );
-    kb.AddKeyVoidEvent( 't', "Control", "Test" );
-    kb.AddKeyVoidEvent( 'f', "Control", "Force" );
-    
-    kb.AddKeyVoidEvent( 'm', "Control", "Move" );
+
     kb.AddKeyVoidEvent( 'i', "Control", "ToIdle" );
-    kb.AddKeyVoidEvent( 'x', "GC", "Move" );
     kb.AddKeyVoidEvent( 'G', "GC", "GravityCompensation");
     taskManager->AddComponent( &kb );
 
@@ -155,8 +148,6 @@ int main(int argc, char** argv){
 
 // ------------------- Connecting ---------------------------
 
-// ------------ Use key 'g' to enable GC controller ---------
-
  
 //----------- connecting keyboard to hybrid controller------------
  if( !taskManager->Connect( ctrl->GetName(), "Control",
@@ -190,11 +181,6 @@ if( !taskManager->Connect( mtspid->GetName(), "GC",
   taskManager->CreateAll();
   taskManager->StartAll();
   pause();
-
-
- //  taskManager->KillAll();
- //  taskManager->Cleanup();
-
 
     //osaJR3ForceSensor jr3("/dev/comedi0");
     //jr3.Open();
