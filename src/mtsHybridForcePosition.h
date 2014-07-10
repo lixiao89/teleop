@@ -58,6 +58,8 @@ private:
   vctFrame4x4<double> Rtwtsoldcmd; // previous command from the master
 
   vctMatrixRotation3<double> Rts;
+
+  // positions of tool wrt WAM link 7
   vctFrame4x4<double> Rtnt;
 
   // JR3 sensor
@@ -103,6 +105,7 @@ private:
   void HybridControl();
   void MoveToReady();
   void Idle(); 
+  void MoveTraj();
   vctDynamicVector<double> sg;
   std::list< osaJR3ForceSensor::Wrench > stdft;  
 
@@ -114,7 +117,7 @@ private:
      double startTime;
 
   void Hybrid(){ state = HYBRID; }
-  void Move();
+  void Move(){state = MOVE};
   void ToIdle(){state = IDLE;};
   bool IsEnabled(){ return enable; }
 

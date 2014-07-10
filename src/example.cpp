@@ -50,6 +50,7 @@ int main(int argc, char** argv){
     kb.SetQuitKey( 'q' );
 
     kb.AddKeyVoidEvent( 'i', "Control", "ToIdle" );
+    kb.AddKeyVoidEvent( 'm', "Control", "Move" );
     kb.AddKeyVoidEvent( 'G', "GC", "GravityCompensation");
     taskManager->AddComponent( &kb );
 
@@ -65,10 +66,16 @@ int main(int argc, char** argv){
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??
-    vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
+   /* vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
                                     0.0000,  1.0000,   0.0000,
                                     0.3090,  0.0000,   0.9511,
+                                    VCT_NORMALIZE );*/
+
+    vctMatrixRotation3<double> Rst( 1.0000,  0.0000,   0.0000,
+                                    0.0000,  1.0000,   0.0000,
+                                    0.0000,  0.0000,   1.0000,
                                     VCT_NORMALIZE );
+ 
     // position of the tool wrt FT sensor (9cm along +z)
     vctFixedSizeVector<double,3> tst( 0.0, 0.0, 0.09 );
     vctFrame4x4<double> Rtst( Rst, tst );
@@ -77,7 +84,8 @@ int main(int argc, char** argv){
     // transform of the tool wrt WAM link 7 (18 deg about +Y)
     vctMatrixRotation3<double> R7t( Rst );
     // position of the TCP wrt WAM link 7
-    vctFixedSizeVector<double,3> t7t( 0.0, 0.0, 0.15 );
+   // vctFixedSizeVector<double,3> t7t( 0.0, 0.0, 0.15 );
+   vctFixedSizeVector<double,3> t7t( 0.0, 0.0, 0.12 );
     vctFrame4x4<double> Rt7t( R7t, t7t ); 
 
     // this is used to evaluate the kinematics and Jacobian

@@ -55,6 +55,9 @@ mtsHybridForcePosition::mtsHybridForcePosition
   osaHybridForcePosition* hfp ):
     
     mtsTaskPeriodic( name, period, true ),
+    robot( robotfilename, Rtw0),
+    tool(Rtnt),
+    
     traj( NULL ),
     timer( 0.0 ),
     Rts( Rtnt.Rotation().Transpose() ),
@@ -80,10 +83,8 @@ mtsHybridForcePosition::mtsHybridForcePosition
     
     control = AddInterfaceRequired( "Control" );
     if( control ){
-       control->AddEventHandlerVoid( &mtsHybridForcePosition::Enable, 
-                                      this, 
-                                      "Enable" );
-       control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
+       
+        control->AddEventHandlerVoid( &mtsHybridForcePosition::Move,
                                       this,
                                       "Move");
         control->AddEventHandlerVoid( &mtsHybridForcePosition::ToIdle,
@@ -138,7 +139,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
        ProcessQueuedCommands(); 
         ProcessQueuedEvents(); 
 
-        if( state == RESET )   { MoveToReady();   }
+        if( state == MOVE )    { MoveTraj();      }
         else if(state == IDLE) { Idle();          }
         else                   { HybridControl(); }
 
@@ -179,70 +180,24 @@ mtsHybridForcePosition::mtsHybridForcePosition
 
     }
 
-    void mtsHybridForcePosition::MoveToReady(){
-
-        // current joints
-        prmPositionJointGet prmq; 
-        GetPosition( prmq );
-        vctDynamicVector<double> q = prmq.Position();
-
-        // error to ready 
-        vctDynamicVector<double> e = qready - q;
-        static double q4 = cmnPI;
-
-        // if error is small then stop reseting
-        if( fabs( q4 - cmnPI_2 ) < 0.0002 ){
-
-            state = HYBRID;
-            bool valid=true;
-            prmq.SetValid( valid );
-            prmq.Position() = q;
-            SetPosition( prmq );
-
-            // set old joint command
-            qsold = qready;
-
-            // set old cartesian command
-            Rtwtsold = robot.ForwardKinematics( qsold );
-            Rtwtsoldcmd = robot.ForwardKinematics( qsold );
-            Rtwtsoldtrj = robot.ForwardKinematics( qsold );
-
-            jr3->Zero( Rtwtsold );
-        }
-        
-        // otherwise take a step toward qready
-        else{
-            
-            vctDynamicVector<double> qs( 7, 0.0 );
-            qs[1] = -cmnPI_2;
-            qs[3] = q4;
-            qs[5] = -cmnPI_2;
-
-            q4 = q4 - 0.0001;
-
-            bool valid=true;
-            prmq.SetValid( valid );
-            prmq.Position() = qs;
-            SetPosition( prmq );
-
-            qsold = qs;
-            
-        }
-        
-    }
-
-
-void mtsHybridForcePosition::Move(){
+   
+void mtsHybridForcePosition::MoveTraj(){
 
             prmPositionJointGet prmq; 
             GetPosition( prmq );
             qready = prmq.Position();
 
-             vctFrame4x4<double> Rtwt = robot.ForwardKinematics( qready );
+            vctFrame4x4<double> Rtwt = robot.ForwardKinematics( qready );
         
-             Rtwtsold = robot.ForwardKinematics( qready );
-             Rtwtsoldcmd = robot.ForwardKinematics( qready );
-             Rtwtsoldtrj = robot.ForwardKinematics( qready );
+
+            Rtwtsold = robot.ForwardKinematics( qready );
+            Rtwtsoldcmd = robot.ForwardKinematics( qready );
+            Rtwtsoldtrj = robot.ForwardKinematics( qready );
+
+           // Rtwt = Rtwt*Rtnt;  
+          // Rtwtsoldcmd = Rtwtsoldcmd*Rtnt;
+          //  Rtwtsold = Rtwtsold*Rtnt;
+          //  Rtwtsoldtrj = Rtwtsoldtrj*Rtnt;
 
             std::cout << "ready x position is:"<<Rtwtsold[1-1][4-1]<<std::endl;
             vctFrame4x4<double> Rtwts(Rtwt);
@@ -253,11 +208,10 @@ void mtsHybridForcePosition::Move(){
 
             // create a 10s trajectory from qready to Rtwts
             if( traj != NULL ) { delete traj; }
-            traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 0.05, 0.05, 10.0 );
+            traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 10.0 );
                
            jr3->Zero( Rtwtsold );
           
-           // std::cout<< traj<<std::endl;
           // state = HYBRID;
 
         }
