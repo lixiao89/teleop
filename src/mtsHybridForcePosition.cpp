@@ -79,6 +79,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
     fz( 0.0 ),
     sg( nmrSavitzkyGolay( 1, 0, 100, 0 ) ){
 
+        // initial value of the estimated coeff. of friction and Fc
+        vctFixedSizeVector<double,2> xinit(-0.5,-1);
+        rls = new RLSestimator(xinit);
+
     robot.Attach( &tool );
     
     control = AddInterfaceRequired( "Control" );
@@ -172,12 +176,23 @@ mtsHybridForcePosition::mtsHybridForcePosition
             stdft.push_back( ft );
             if( sg.size() < stdft.size() ) { stdft.pop_front(); }
             ft = convolve( stdft, sg );
-            
-          //  std::cout<<ft[0]<<",   "<<ft[1]<<",   "<<ft[2]<<",   "<<ft[3]<<",   "<<ft[4]<<",   "<<ft[5]<<std::endl;
+ 
+            if(!rls->Evaluate(ft[2], ft[0])){
+                std::cout<<"Cutting Failure!!"<<std::endl;
+            }
+
+                    
+            vctFixedSizeVector<double,2> xesti;
+            double Festi;
+
+            rls->GetEstimates(xesti, Festi);
+
+            ofsForceData<< time - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl; 
+                  
 
            // ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
 
-         ofsForceData<< timer - startTime <<","<<q[0]<<", "<<q[1]<<", "<<q[3]<<", "<<q[4]<<", "<<q[5]<<", "<<q[6]<<", "<<Rtwt[0][0]<<", "<<Rtwt[0][1]<<", "<<Rtwt[0][2]<<", "<<Rtwt[0][3]<<", "<<Rtwt[1][0]<<", "<<Rtwt[1][1]<<", "<<Rtwt[1][2]<<", "<<Rtwt[1][3]<<", "<<Rtwt[2][0]<<", "<<Rtwt[2][1]<<", "<<Rtwt[2][2]<<", "<<Rtwt[2][3]<<", "<<Rtwt[3][0]<<", "<<Rtwt[3][1]<<", "<<Rtwt[3][2]<<", "<<Rtwt[3][3]<<std::endl;
+         //ofsForceData<< timer - startTime <<","<<q[0]<<", "<<q[1]<<", "<<q[3]<<", "<<q[4]<<", "<<q[5]<<", "<<q[6]<<", "<<Rtwt[0][0]<<", "<<Rtwt[0][1]<<", "<<Rtwt[0][2]<<", "<<Rtwt[0][3]<<", "<<Rtwt[1][0]<<", "<<Rtwt[1][1]<<", "<<Rtwt[1][2]<<", "<<Rtwt[1][3]<<", "<<Rtwt[2][0]<<", "<<Rtwt[2][1]<<", "<<Rtwt[2][2]<<", "<<Rtwt[2][3]<<", "<<Rtwt[3][0]<<", "<<Rtwt[3][1]<<", "<<Rtwt[3][2]<<", "<<Rtwt[3][3]<<std::endl;
 
 
     }

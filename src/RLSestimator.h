@@ -32,7 +32,7 @@ class RLSestimator{
         // yk is the measurement vector with first element measured tangential force and second element 0
         vctFixedSizeVector<double,2> yk;
         // constructor
-        RLSestimator(vct2& xinit): 
+        RLSestimator(vctFixedSizeVector<double,2>& xinit): 
         
          x(xinit),
          P(vct2x2::Eye()),
@@ -44,6 +44,12 @@ class RLSestimator{
          yk(0,0){
 
          }
+
+        void GetEstimates(vctFixedSizeVector<double,2>& xesti, double& Festi){
+
+            xesti = x;
+            Festi = Fest; 
+        }        
 
         bool Evaluate(double const &Fn, double const &Fe){
 

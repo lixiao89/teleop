@@ -40,6 +40,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstNumerical/nmrSavitzkyGolay.h>
 
 #include <sawBarrett/osaWAM.h>
+#include "RLSestimator.h"
 
 #include <sstream>
 #include <iostream>
@@ -67,7 +68,9 @@ private:
 
   // WAM
   osaWAM* wam;
-  //
+  // RLS
+  RLSestimator* rls;
+
   osaGravityCompensation* gc;
   osaHybridForcePosition* hfp;
   
