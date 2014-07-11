@@ -17,7 +17,7 @@
 
 #include "mtsHybridForcePosition.h"
 #include "mtsPIDAntiWindup.h"
-
+#include "RLSestimator.h"
 //================== MAIN =========================
 
 int main(int argc, char** argv){

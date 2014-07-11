@@ -80,7 +80,7 @@ private:
   vctDynamicVector<double> qsold;
   vctDynamicVector<double> tauold;
 
-  enum State{ DONOTHING, IDLE, RESET, ENABLE, HYBRID };
+  enum State{ DONOTHING, IDLE, RESET, ENABLE, HYBRID, MOVE};
   State state;
   bool enable;
 
@@ -117,7 +117,7 @@ private:
      double startTime;
 
   void Hybrid(){ state = HYBRID; }
-  void Move(){state = MOVE};
+  void Move(){state = MOVE;};
   void ToIdle(){state = IDLE;};
   bool IsEnabled(){ return enable; }
 

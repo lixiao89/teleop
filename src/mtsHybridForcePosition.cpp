@@ -175,7 +175,9 @@ mtsHybridForcePosition::mtsHybridForcePosition
             
           //  std::cout<<ft[0]<<",   "<<ft[1]<<",   "<<ft[2]<<",   "<<ft[3]<<",   "<<ft[4]<<",   "<<ft[5]<<std::endl;
 
-            ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
+           // ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
+
+         ofsForceData<< timer - startTime <<","<<q[0]<<", "<<q[1]<<", "<<q[3]<<", "<<q[4]<<", "<<q[5]<<", "<<q[6]<<", "<<Rtwt[0][0]<<", "<<Rtwt[0][1]<<", "<<Rtwt[0][2]<<", "<<Rtwt[0][3]<<", "<<Rtwt[1][0]<<", "<<Rtwt[1][1]<<", "<<Rtwt[1][2]<<", "<<Rtwt[1][3]<<", "<<Rtwt[2][0]<<", "<<Rtwt[2][1]<<", "<<Rtwt[2][2]<<", "<<Rtwt[2][3]<<", "<<Rtwt[3][0]<<", "<<Rtwt[3][1]<<", "<<Rtwt[3][2]<<", "<<Rtwt[3][3]<<std::endl;
 
 
     }
@@ -194,17 +196,11 @@ void mtsHybridForcePosition::MoveTraj(){
             Rtwtsoldcmd = robot.ForwardKinematics( qready );
             Rtwtsoldtrj = robot.ForwardKinematics( qready );
 
-           // Rtwt = Rtwt*Rtnt;  
-          // Rtwtsoldcmd = Rtwtsoldcmd*Rtnt;
-          //  Rtwtsold = Rtwtsold*Rtnt;
-          //  Rtwtsoldtrj = Rtwtsoldtrj*Rtnt;
-
-            std::cout << "ready x position is:"<<Rtwtsold[1-1][4-1]<<std::endl;
             vctFrame4x4<double> Rtwts(Rtwt);
 
             Rtwtsoldcmd = Rtwt;
-            // move along the X axis for 0.05m
-            Rtwts[1-1][4-1] -= 0.5; // CHANGE THIS to the correct direction and value
+            // move along the Y axis for 0.05m
+            Rtwts[2-1][4-1] += 0.5; // CHANGE THIS to the correct direction and value
 
             // create a 10s trajectory from qready to Rtwts
             if( traj != NULL ) { delete traj; }
@@ -249,6 +245,7 @@ void mtsHybridForcePosition::MoveTraj(){
            if( traj != NULL ){
                 vctFrame4x4<double> Rtwt;
                 vctFixedSizeVector<double,6> vw( 0.0 ), vdwd( 0.0 );
+                // Rtwt is the interpolated new position, vw, vdwd interpolated velocity and acceleration respectively
                 traj->Evaluate( osaGetTime()-timer, Rtwt, vw, vdwd );
                 vctFrame4x4<double> Rttw( Rtwtsoldtrj );
                 Rttw.InverseSelf();
@@ -279,7 +276,7 @@ void mtsHybridForcePosition::MoveTraj(){
             // desired force
             vctDynamicVector<double> fts( 6, 0.0 );
            // fts[2] = fz;
-            fts[2] = 7; // CHANGE THIS to the right value !
+            fts[2] = -7; // CHANGE THIS to the right value !
 
             // if non zero desired force along Z
             if( 0 < fabs( fts[2] ) ){
