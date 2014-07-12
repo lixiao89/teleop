@@ -39,10 +39,14 @@ class RLSestimator{
          Rk(vct2x2::Eye()),
          fail(false),
          threshold(0.3),
-         Hk(0,0,1,0),
+         Hk(vct2x2::Eye()),
          Fest(0),
          yk(0,0){
-
+                
+               Hk[0][0] = 0;
+               Hk[0][1] = 0;
+               Hk[1][0] = 1;
+               Hk[1][1] = 0;
          }
 
         void GetEstimates(vctFixedSizeVector<double,2>& xesti, double& Festi){
@@ -56,15 +60,23 @@ class RLSestimator{
                 Hk[0][0] = Fn;
                 yk[0] = Fe;
                 
+
                 vctFixedSizeMatrix<double,2,2> K;
                 vctFixedSizeMatrix<double,2,2> tempK;
                 vctFixedSizeMatrix<double,2,2> invtempK;
 
                 tempK = Hk.Transpose()*P*Hk + Rk;
-                this->Inverse(tempK,invtempK);
+
+                Inverse(tempK,invtempK);
                 K = P*Hk*invtempK;
 
+                //std::cout<<invtempK<<std::endl;
+                //std::cout<<""<<std::endl;
+
+
                 x = x + K*(yk - Hk.Transpose()*x);
+
+               //std::cout<<x[0]<<", "<<x[1]<<std::endl;
 
                 P = (vct2x2::Eye() - K*Hk.Transpose())*P;
                 
@@ -81,16 +93,21 @@ class RLSestimator{
 
          }
 
-      void Inverse(vctFixedSizeMatrix<double,2,2>& M, vctFixedSizeMatrix<double,2,2> Minv){
+      void Inverse(vctFixedSizeMatrix<double,2,2>& M, vctFixedSizeMatrix<double,2,2>& Minv){
             double detM;
             detM = M[0][0]*M[1][1] - M[0][1]*M[1][0];
             
+            if(abs(detM) < 0.0001){
+                detM = 0.0001;
+            }
+
             Minv[0][0] = M[1][1];
             Minv[0][1] = -M[0][1];
             Minv[1][0] = -M[1][0];
             Minv[1][1] = M[0][0];
 
             Minv = (1/detM)*Minv;
+
 
         }
 };

@@ -121,7 +121,7 @@ private:
 
   void Hybrid(){ state = HYBRID; }
   void Move(){state = MOVE;};
-  void ToIdle(){state = IDLE;};
+  void ToIdle(){state = IDLE; std::cout<< "start Idle!"<<std::endl;};
   bool IsEnabled(){ return enable; }
 
  public:

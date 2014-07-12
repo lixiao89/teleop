@@ -178,7 +178,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
             ft = convolve( stdft, sg );
  
             if(!rls->Evaluate(ft[2], ft[0])){
-                std::cout<<"Cutting Failure!!"<<std::endl;
+               // std::cout<<"Cutting Failure!!"<<std::endl;
             }
 
                     
@@ -187,7 +187,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
 
             rls->GetEstimates(xesti, Festi);
 
-            ofsForceData<< time - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl; 
+            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl; 
                   
 
            // ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
