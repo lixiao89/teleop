@@ -75,6 +75,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
     
     state( DONOTHING ),
     enable( false ),
+    failstate(false),
 
     fz( 0.0 ),
     sg( nmrSavitzkyGolay( 1, 0, 100, 0 ) ){
@@ -161,7 +162,6 @@ mtsHybridForcePosition::mtsHybridForcePosition
         // current Cartesian pose
         vctFrame4x4<double> Rtwt = robot.ForwardKinematics( q );
        
-
             // extract the rotation of the tool
             vctMatrixRotation3<double> Rwt( Rtwt.Rotation() );
             
@@ -177,8 +177,9 @@ mtsHybridForcePosition::mtsHybridForcePosition
             if( sg.size() < stdft.size() ) { stdft.pop_front(); }
             ft = convolve( stdft, sg );
  
-            if(!rls->Evaluate(ft[2], ft[0])){
-               // std::cout<<"Cutting Failure!!"<<std::endl;
+            if(rls->Evaluate(ft[2], ft[0]) && !failstate){
+               std::cout<<"Cutting Failure at time:"<<timer - startTime<<std::endl;
+               failstate = true;
             }
 
                     
@@ -221,9 +222,28 @@ void mtsHybridForcePosition::MoveTraj(){
             if( traj != NULL ) { delete traj; }
             traj = new robLinearSE3( Rtwtsoldcmd, Rtwts, 10.0 );
                
-           jr3->Zero( Rtwtsold );
-          
-          // state = HYBRID;
+           // extract the rotation of the tool
+            vctMatrixRotation3<double> Rwt( Rtwt.Rotation() );
+            
+            // now get the orientation of the sensor
+            vctMatrixRotation3<double> Rws( Rwt * Rts );
+
+
+             jr3->Zero( Rtwtsold );
+
+            // Current force, compensate for sensor orientation
+            osaJR3ForceSensor::Wrench ft;
+            jr3->Read( ft, Rws, true, 3 );
+            
+            // filter the reading
+            stdft.push_back( ft );
+            if( sg.size() < stdft.size() ) { stdft.pop_front(); }
+            ft = convolve( stdft, sg );
+ 
+                    
+           
+            //std::cout<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
+            // state = HYBRID;
 
         }
 

@@ -38,7 +38,7 @@ class RLSestimator{
          P(vct2x2::Eye()),
          Rk(vct2x2::Eye()),
          fail(false),
-         threshold(0.3),
+         threshold(10),
          Hk(vct2x2::Eye()),
          Fest(0),
          yk(0,0){

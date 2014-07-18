@@ -51,7 +51,9 @@ int main(int argc, char** argv){
 
     kb.AddKeyVoidEvent( 'i', "Control", "ToIdle" );
     kb.AddKeyVoidEvent( 'm', "Control", "Move" );
+    kb.AddKeyVoidEvent( 'm', "GC", "MovePID");
     kb.AddKeyVoidEvent( 'G', "GC", "GravityCompensation");
+   
     taskManager->AddComponent( &kb );
 
  // initial joint position
@@ -66,7 +68,7 @@ int main(int argc, char** argv){
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??
-   /* vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
+    /*vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
                                     0.0000,  1.0000,   0.0000,
                                     0.3090,  0.0000,   0.9511,
                                     VCT_NORMALIZE );*/

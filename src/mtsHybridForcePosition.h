@@ -86,6 +86,7 @@ private:
   enum State{ DONOTHING, IDLE, RESET, ENABLE, HYBRID, MOVE};
   State state;
   bool enable;
+  bool failstate;
 
   double fz;
 
