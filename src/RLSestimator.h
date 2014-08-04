@@ -14,11 +14,6 @@ class RLSestimator{
         // Fest is the estimated total tangential force 
         double Fest;
 
-        // Fn is the measured normal force
-        // double Fn;
-        // Fe is the measured tangential force
-        //double Fe;
-
         // indicate a cutting failure mode
         bool fail;
         // error threshold
@@ -70,13 +65,7 @@ class RLSestimator{
                 Inverse(tempK,invtempK);
                 K = P*Hk*invtempK;
 
-                //std::cout<<invtempK<<std::endl;
-                //std::cout<<""<<std::endl;
-
-
                 x = x + K*(yk - Hk.Transpose()*x);
-
-               //std::cout<<x[0]<<", "<<x[1]<<std::endl;
 
                 P = (vct2x2::Eye() - K*Hk.Transpose())*P;
                 

@@ -51,6 +51,7 @@ int main(int argc, char** argv){
 
     kb.AddKeyVoidEvent( 'i', "Control", "ToIdle" );
     kb.AddKeyVoidEvent( 'm', "Control", "Move" );
+    kb.AddKeyVoidEvent( 't', "Control", "PrintTime");
     kb.AddKeyVoidEvent( 'm', "GC", "MovePID");
     kb.AddKeyVoidEvent( 'G', "GC", "GravityCompensation");
    
@@ -68,15 +69,15 @@ int main(int argc, char** argv){
 
  // orientation of the tool wrt FT sensor (18 degrees about +Y)
  // Change this??
-    /*vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
+    vctMatrixRotation3<double> Rst( 0.9511,  0.0000,  -0.3090,
                                     0.0000,  1.0000,   0.0000,
                                     0.3090,  0.0000,   0.9511,
-                                    VCT_NORMALIZE );*/
+                                    VCT_NORMALIZE );
 
-    vctMatrixRotation3<double> Rst( 1.0000,  0.0000,   0.0000,
+   /* vctMatrixRotation3<double> Rst( 1.0000,  0.0000,   0.0000,
                                     0.0000,  1.0000,   0.0000,
                                     0.0000,  0.0000,   1.0000,
-                                    VCT_NORMALIZE );
+                                    VCT_NORMALIZE );*/
  
     // position of the tool wrt FT sensor (9cm along +z)
     vctFixedSizeVector<double,3> tst( 0.0, 0.0, 0.09 );

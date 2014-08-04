@@ -68,9 +68,28 @@ private:
 
   // WAM
   osaWAM* wam;
-  // RLS
+  
+  //--------------- For RLS --------------------
   RLSestimator* rls;
+  std::ofstream ofsForceData;
+  double startTime;
+  bool failstate;
+  bool isMoving;
+  double prevTime;
 
+
+  vctFrame4x4<double> prevPos;// record the last position manipulator is in
+  vctDynamicVector<double> prevJointPos;
+
+  std::vector< std::vector<double> > jointPoses;
+  std::vector<double> timeStamps;
+  int avgNum;// number of joint position measurement to take in calculation of velocity
+
+  // Estimated quantities from RLSestimator, xesti = [mu, Fc], Festi is the estimated tangential force
+  vctFixedSizeVector<double,2> xesti;
+  double Festi;
+
+ //--------------------------------------------
   osaGravityCompensation* gc;
   osaHybridForcePosition* hfp;
   
@@ -86,7 +105,6 @@ private:
   enum State{ DONOTHING, IDLE, RESET, ENABLE, HYBRID, MOVE};
   State state;
   bool enable;
-  bool failstate;
 
   double fz;
 
@@ -117,9 +135,6 @@ private:
     
  public:
 
-     std::ofstream ofsForceData;
-     double startTime;
-
   void Hybrid(){ state = HYBRID; }
   void Move(){state = MOVE;};
   void ToIdle(){state = IDLE; std::cout<< "start Idle!"<<std::endl;};
@@ -138,7 +153,74 @@ private:
 			   osaJR3ForceSensor* jr3,
 			   osaGravityCompensation* gc,
 			   osaHybridForcePosition* hfp );
+ 
+  // --------------------- For RLS -----------------------------------
+  void PrintTime(){
+      std::cout<< "current time is: "<< osaGetTime() - startTime <<std::endl;
+  }
 
+
+  void CalcVectorAverage(const std::vector<double>& vect, double& avg){
+
+      double temp = 0;
+      for(int i = 0; i < vect.size(); i++){
+            temp = temp + vect.at(i);
+      }
+
+      avg = temp/vect.size();
+  }
+
+
+void CalcAverageVelocity(vctDynamicVector<double>& currJointPos, double& currTime, vctDynamicVector<double>& avgVel){
+
+    std::vector<double> temp;
+
+    for(int i = 0; i < 7; i++){
+        temp.push_back(currJointPos[i]);
+    }
+
+         jointPoses.push_back(temp);
+         timeStamps.push_back(currTime);
+        // process only the most recent avgNum data
+        if(timeStamps.size() > avgNum){
+            jointPoses.erase(jointPoses.begin());
+            timeStamps.erase(timeStamps.begin());
+        }
+
+
+        vctDynamicVector<double> currPos( 7 , jointPoses.at(avgNum-1).at(0),jointPoses.at(avgNum-1).at(1),jointPoses.at(avgNum-1).at(2),jointPoses.at(avgNum-1).at(3),jointPoses.at(avgNum-1).at(4),jointPoses.at(avgNum-1).at(5),jointPoses.at(avgNum-1).at(6));
+
+        vctDynamicVector<double> pastPos( 7 , jointPoses.at(0).at(0),jointPoses.at(0).at(1),jointPoses.at(0).at(2),jointPoses.at(0).at(3),jointPoses.at(0).at(4),jointPoses.at(0).at(5),jointPoses.at(0).at(6));
+
+
+        vctDynamicVector<double> jointPosdiff = (currPos - pastPos).Abs();
+        
+        double timediff = (timeStamps.at(avgNum-1) - timeStamps.at(0));
+        avgVel = jointPosdiff / timediff;
+
+}
+
+bool WAMIsNotMoving( vctDynamicVector<double>& currJointPos, double& currTime){
+      
+    vctDynamicVector<double> jointAvgVel;
+    CalcAverageVelocity(currJointPos, currTime, jointAvgVel);
+      
+
+            double motionThreshold = 0.03;
+
+        if(jointAvgVel[0] < motionThreshold && jointAvgVel[1] < motionThreshold && jointAvgVel[2] < motionThreshold && jointAvgVel[3] < motionThreshold && jointAvgVel[4] < motionThreshold && jointAvgVel[5] < motionThreshold && jointAvgVel[6] < motionThreshold){
+
+            //std::cout<<jointAvgVel<<std::endl;
+            return true;
+        }
+        else{
+
+            //std::cout<<jointAvgVel<<std::endl;
+            return false;
+        }
+}
+  //----------------------------------------------------------------
+ 
   
   void Configure( const std::string& );
   void Startup();

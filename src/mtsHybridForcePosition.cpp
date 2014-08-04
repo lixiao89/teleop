@@ -76,14 +76,32 @@ mtsHybridForcePosition::mtsHybridForcePosition
     state( DONOTHING ),
     enable( false ),
     failstate(false),
+    isMoving(false),
+    prevTime(osaGetTime()),
+    avgNum(10),
 
     fz( 0.0 ),
     sg( nmrSavitzkyGolay( 1, 0, 100, 0 ) ){
 
-        // initial value of the estimated coeff. of friction and Fc
-        vctFixedSizeVector<double,2> xinit(-0.5,-1);
-        rls = new RLSestimator(xinit);
+//-------------- For RLS -------------------------------
 
+        // initial value of the estimated coeff. of friction and Fc
+        vctFixedSizeVector<double,2> xinit(0.5,1);
+        rls = new RLSestimator(xinit);
+        ofsForceData.open("/home/lixiao/Desktop/Data1.txt");
+        startTime = osaGetTime();
+        
+        timeStamps.push_back(startTime);
+        // initialize jointPoses
+        std::vector<double> temp(7, 0);
+        for(int i = 0; i < avgNum; i++){jointPoses.push_back(temp);} 
+
+        prevJointPos = qinit;
+        
+        xesti = xinit;
+        Festi = 0;
+             
+//-------------------------------------------------------
     robot.Attach( &tool );
     
     control = AddInterfaceRequired( "Control" );
@@ -95,13 +113,10 @@ mtsHybridForcePosition::mtsHybridForcePosition
         control->AddEventHandlerVoid( &mtsHybridForcePosition::ToIdle,
                                       this,
                                       "ToIdle");
-
+        control->AddEventHandlerVoid( &mtsHybridForcePosition::PrintTime, this, "PrintTime");
        }
 
 
-
-    //-------------------------------------------------
-    
 
     slave = AddInterfaceRequired( "Slave" );
     if( slave ){
@@ -110,10 +125,7 @@ mtsHybridForcePosition::mtsHybridForcePosition
     }
 
 
-      ofsForceData.open("/home/lixiao/Desktop/Data1.txt");
-      startTime = osaGetTime();
-
-}
+      }
  
     void mtsHybridForcePosition::Configure( const std::string& ){}
     void mtsHybridForcePosition::Startup(){
@@ -176,26 +188,50 @@ mtsHybridForcePosition::mtsHybridForcePosition
             stdft.push_back( ft );
             if( sg.size() < stdft.size() ) { stdft.pop_front(); }
             ft = convolve( stdft, sg );
- 
+// ------------------------ For RLS ----------------------------------------
+
+        //if(WAMIsNotMoving( Rtwt, prevPos, posDiffFrobenNorm)){    
+        double currTime = timer - startTime;
+        bool wamNotMoving = WAMIsNotMoving(q, currTime);
+        
+       // if(wamNotMoving && !isMoving){
+          if(wamNotMoving){
+            //std::cout<<"WAM is not moving!"<<std::endl;
+            //isMoving = true;
+            //rls->GetEstimates(xesti, Festi);
+            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< 0  << ", "<< 0 <<", " << 0 <<std::endl; 
+  
+
+           }
+        //else if(!wamNotMoving && isMoving){
+          else{
+            //std::cout<<"WAM is moving!"<<std::endl;
+            //isMoving = false;
             if(rls->Evaluate(ft[2], ft[0]) && !failstate){
                std::cout<<"Cutting Failure at time:"<<timer - startTime<<std::endl;
                failstate = true;
             }
 
-                    
+            rls->GetEstimates(xesti, Festi);
+            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl;
+             
+        }
+
+           /* if(rls->Evaluate(ft[2], ft[0]) && !failstate){
+               std::cout<<"Cutting Failure at time:"<<timer - startTime<<std::endl;
+               failstate = true;
+            }
+
+                   
             vctFixedSizeVector<double,2> xesti;
             double Festi;
 
             rls->GetEstimates(xesti, Festi);
-
-            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl; 
-                  
-
-           // ofsForceData<< timer - startTime <<","<<ft[0]<<", "<<ft[1]<<", "<<ft[2]<<std::endl;
-
-         //ofsForceData<< timer - startTime <<","<<q[0]<<", "<<q[1]<<", "<<q[3]<<", "<<q[4]<<", "<<q[5]<<", "<<q[6]<<", "<<Rtwt[0][0]<<", "<<Rtwt[0][1]<<", "<<Rtwt[0][2]<<", "<<Rtwt[0][3]<<", "<<Rtwt[1][0]<<", "<<Rtwt[1][1]<<", "<<Rtwt[1][2]<<", "<<Rtwt[1][3]<<", "<<Rtwt[2][0]<<", "<<Rtwt[2][1]<<", "<<Rtwt[2][2]<<", "<<Rtwt[2][3]<<", "<<Rtwt[3][0]<<", "<<Rtwt[3][1]<<", "<<Rtwt[3][2]<<", "<<Rtwt[3][3]<<std::endl;
+            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl;*/ 
+             
 
 
+//----------------------------------------------------------------------------
     }
 
    
@@ -251,6 +287,7 @@ void mtsHybridForcePosition::MoveTraj(){
 
 
     void mtsHybridForcePosition::HybridControl(){
+        
         // current joints
         prmPositionJointGet prmq; 
         GetPosition( prmq );
