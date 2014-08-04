@@ -199,9 +199,12 @@ mtsHybridForcePosition::mtsHybridForcePosition
             //std::cout<<"WAM is not moving!"<<std::endl;
             //isMoving = true;
             //rls->GetEstimates(xesti, Festi);
-            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< 0  << ", "<< 0 <<", " << 0 <<std::endl; 
-  
 
+            xesti.Assign((double)0,0);
+            Festi = 0;
+  
+            ofsForceData<< timer - startTime << ", "<<ft[0]<<", "<<ft[2]<<", "<< xesti[0] << ", "<< xesti[1] <<", " << Festi <<std::endl;
+            
            }
         //else if(!wamNotMoving && isMoving){
           else{
